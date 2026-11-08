@@ -107,8 +107,8 @@ export function assessLiquidity(input: {
   estimatedExitImpactPct?: number; exitCapacitySol?: number;
 }): LiquidityAssessment {
   const notes:string[]=[];
-  if(input.phase==="bonding_curve" && input.curveRealSolReserves===undefined && input.curveVirtualSolReserves===undefined)
-    notes.push("bonding_curve_sol_reserves_missing");
+  if(input.phase==="bonding_curve" && input.curveRealSolReserves===undefined)
+    notes.push("bonding_curve_real_sol_reserves_missing_virtual_reserves_are_not_executable_liquidity");
   if(input.phase==="migrated" && input.migratedPoolLiquiditySol===undefined)
     notes.push("migrated_pool_liquidity_missing");
   if(input.phase==="migrated" && input.lpBurnedPct===undefined && input.lpLockedPct===undefined)
