@@ -64,6 +64,7 @@ export async function runScan(apiKey: string, job: ScanJob) {
   await mkdir(outDir, { recursive: true });
   const outputPath = join(outDir, `${job.name}-october-2026.jsonl`);
   const checkpointPath = join(outDir, `${job.name}-october-2026.checkpoint.json`);
+  await writeFile(outputPath, "", "utf8");
   const stats = {
     job: job.name,
     pages: 0,
@@ -72,6 +73,7 @@ export async function runScan(apiKey: string, job: ScanJob) {
     matchedTransactions: 0,
     creditsCharged: 0,
     stoppedOn: "not_started",
+    complete: false,
     outputPath
   };
 
@@ -114,7 +116,11 @@ export async function runScan(apiKey: string, job: ScanJob) {
       updatedAt: new Date().toISOString()
     }, null, 2));
 
-    if (!next || next === paginationToken || next === previousToken) break;
+    if (!next) { stats.complete = page.scan?.stoppedOn === "windowEnd"; break; }
+    if (next === paginationToken || next === previousToken) {
+      stats.stoppedOn = "pagination_stalled";
+      break;
+    }
     previousToken = paginationToken;
     paginationToken = next;
   }
