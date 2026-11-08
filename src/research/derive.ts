@@ -144,7 +144,7 @@ async function main() {
   await writeFile(join(derivedDir, "october-2026-derive-report.json"), JSON.stringify({
     inputFiles: files, inputRecords, malformedLines, nonSwapRecords, failedSwapRecords,
     deduplicatedSwapRows: swapRows.length, successfulWalletCount: walletRows.length, successfulTokenCount: tokenRows.length,
-    parserFix: "Read parsed.parsedData first, falling back to summary.parsedData. The first collector's derived pass only checked summary.parsedData and missed top-level parsed swap payloads.",
+    parserCompatibility: "Read parsed.parsedData first and fall back to summary.parsedData. The first artifact's observed records stored parsed swap payloads under summary.parsedData; its 2,321 deduplicated swap count, 1,281 wallet count and 493 token count are consistent with an independent re-parse.",
     caveats: [
       "Wallet identity uses feePayer as a proxy and can be wrong for relayed or sponsored transactions.",
       "Raw quote amounts are not USD-normalized; token/quote decimals and historical FX/price data are required.",
