@@ -78,7 +78,7 @@ async function main() {
       const inputAmount = str(parsedData.in_amount);
       const outputAmount = str(parsedData.actual_out_amount ?? parsedData.out_amount);
       const status = str(parsed.transactionStatus ?? outer.parserStatus);
-      const success = status === "OK" || status === "Success" || status === "succeeded" || status === "";
+      const success = status === "OK" || status === "Success" || status === "succeeded";
 
       if (!signature || !wallet || type !== "swap" || !inputMint || !outputMint) {
         nonSwapRecords++;
