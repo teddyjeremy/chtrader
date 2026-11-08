@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       max_pages:
-        description: "Maximum scan pages per program; start at 5 and inspect Helius credits"
+        description: "Pages per program for this run; 0 continues until the October window is exhausted"
         required: false
-        default: "5"
+        default: "0"
 
 permissions:
   contents: read
@@ -18,10 +18,17 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 350
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Restore October scan checkpoint and raw pages
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: chtrader-october-v2-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            chtrader-october-v2-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -31,20 +38,37 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
       - name: Collect October program activity
+        timeout-minutes: 300
         env:
           HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
-          HELIUS_MAX_PAGES: ${{ inputs.max_pages || '5' }}
+          HELIUS_MAX_PAGES: ${{ inputs.max_pages || '0' }}
+          HELIUS_MAX_RETRIES: "6"
         run: |
           set +x
           npm run research:october
-          npm run research:derive
+      - name: Derive research tables
+        if: always()
+        run: |
+          if compgen -G "data/raw/*-october-2026.jsonl" > /dev/null; then
+            npm run research:derive
+          else
+            echo "No raw October files were produced; skipping derivation."
+          fi
+      - name: Save October scan checkpoint and raw pages
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/raw
+          key: chtrader-october-v2-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Upload research dataset
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: chtrader-october-2026-research
+          name: chtrader-october-2026-research-${{ github.run_id }}
           path: |
             data/raw/*.jsonl
+            data/raw/*.checkpoint.json
             data/derived/*.json
+            data/derived/*.csv
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 30
