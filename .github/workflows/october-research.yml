@@ -37,6 +37,7 @@ jobs:
         run: |
           set +x
           npm run research:october
+          npm run research:derive
       - name: Upload research dataset
         if: always()
         uses: actions/upload-artifact@v4
