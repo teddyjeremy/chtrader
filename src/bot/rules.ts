@@ -38,14 +38,21 @@ function applyRiskGate(r: RiskAssessment | undefined, s: MarketSnapshot, c: Stra
     hard.push("high_confidence_bundle_holdings_too_high");
   if (bundles.sameSlotOnly) watch.push("same_slot_signal_not_proof_of_bundle");
   if (r.mintAuthorityRevoked === false) hard.push("mint_authority_still_enabled");
+  else if (r.mintAuthorityRevoked === null) watch.push("mint_authority_status_unknown");
   if (r.freezeAuthorityRevoked === false) hard.push("freeze_authority_still_enabled");
+  else if (r.freezeAuthorityRevoked === null) watch.push("freeze_authority_status_unknown");
   if (r.creatorSoldPct !== null && r.creatorSoldPct > 5) hard.push("creator_selling_detected");
+  else if (r.creatorSoldPct === null) watch.push("creator_sell_history_unknown");
   if (r.largestHolderSelling === true) hard.push("largest_holder_selling");
+  else if (r.largestHolderSelling === null) watch.push("largest_holder_sell_status_unknown");
   if (r.failedTransactionRatePct !== null && r.failedTransactionRatePct > c.maxFailedTxRatePct)
     hard.push("failed_transaction_rate_too_high");
+  else if (r.failedTransactionRatePct === null) watch.push("failed_transaction_rate_unknown");
   if (r.liquidityWithdrawalDetected === true) hard.push("liquidity_withdrawal_detected");
+  else if (r.liquidityWithdrawalDetected === null) watch.push("liquidity_withdrawal_status_unknown");
   if (r.volumeConcentrationTopWalletPct !== null && r.volumeConcentrationTopWalletPct > 60)
     watch.push("volume_concentrated_in_few_wallets");
+  else if (r.volumeConcentrationTopWalletPct === null) watch.push("volume_concentration_unknown");
 }
 export function evaluateEntry(s: MarketSnapshot, config: StrategyConfig = DEFAULT_CONFIG): Decision {
   const reasons: string[] = [], hardRejects: string[] = [];
