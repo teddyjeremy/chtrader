@@ -4,11 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       max_pages:
-        description: "Maximum scan pages per program (100 matches/page; raise only after checking Helius credits)"
+        description: "Maximum scan pages per program; start at 25 and inspect Helius credits"
         required: false
-        default: "250"
-  schedule:
-    - cron: "20 2 * * 1"
+        default: "25"
 
 permissions:
   contents: read
@@ -28,7 +26,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - name: Install
         run: npm install
       - name: Typecheck
@@ -36,7 +33,7 @@ jobs:
       - name: Collect October program activity
         env:
           HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
-          HELIUS_MAX_PAGES: ${{ inputs.max_pages || '250' }}
+          HELIUS_MAX_PAGES: ${{ inputs.max_pages || '25' }}
         run: |
           set +x
           npm run research:october
