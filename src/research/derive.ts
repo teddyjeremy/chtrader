@@ -67,8 +67,7 @@ async function main() {
       try { outer = obj(JSON.parse(line)); } catch { malformedLines++; continue; }
       const parsed = obj(outer.parsed ?? outer);
       const summary = obj(parsed.summary);
-      // Parsed Events places protocol swap data at parsed.parsedData. Some
-      // parser versions also expose it under summary.parsedData; support both.
+      // Support both known placements of protocol-specific parsed swap data.
       const parsedData = obj(parsed.parsedData ?? summary.parsedData);
       const signature = str(outer.signature ?? parsed.signature);
       const wallet = str(parsed.feePayer ?? outer.feePayer);
