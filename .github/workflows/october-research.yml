@@ -1,0 +1,52 @@
+name: October 2026 Solana research
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: "Maximum scan pages per program (100 matches/page; raise only after checking Helius credits)"
+        required: false
+        default: "250"
+  schedule:
+    - cron: "20 2 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chtrader-october-research
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm install
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Collect October program activity
+        env:
+          HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
+          HELIUS_MAX_PAGES: ${{ inputs.max_pages || '250' }}
+        run: |
+          set +x
+          npm run research:october
+      - name: Upload research dataset
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chtrader-october-2026-research
+          path: |
+            data/raw/*.jsonl
+            data/derived/*.json
+          if-no-files-found: warn
+          retention-days: 14
