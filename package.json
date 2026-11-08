@@ -6,7 +6,8 @@
   "scripts": {
     "research:october": "tsx src/research/october.ts",
     "typecheck": "tsc --noEmit",
-    "research:derive": "tsx src/research/derive.ts"
+    "research:derive": "tsx src/research/derive.ts",
+    "test:risk": "tsx --test src/bot/risk-analyzers.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
