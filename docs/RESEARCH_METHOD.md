@@ -19,7 +19,7 @@ A scan is complete only when no pagination token remains and `scan.stoppedOn=win
 2. Pump create instructions are included to help build a token universe; other DEX program scans include all instructions to preserve swap, liquidity and pool lifecycle evidence.
 3. PumpSwap/Jupiter/direct venue transactions can overlap. Reconcile by signature and instruction/route evidence; do not double-count Jupiter as a separate pool fill.
 4. The first artifact stopped at five pages per program and only covered the final moments of October 31. It is not a month-wide sample.
-5. The initial derive script missed top-level `parsed.parsedData`; this has been fixed. Re-run derivation on the retained sample before using its swap counts.
+5. The derive parser accepts both `parsed.parsedData` and `parsed.summary.parsedData`. An independent re-parse reproduced the initial sample's counts, but those counts describe only the final moments of October 31.
 6. Historical pool states, executable quotes, decimals, token metadata, creator funding graphs and full wallet cost basis still require enrichment.
 
 ## Required derived tables
