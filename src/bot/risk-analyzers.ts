@@ -114,11 +114,16 @@ export function assessLiquidity(input: {
   if(input.phase==="migrating" || input.phase==="unknown") notes.push("market_phase_not_stable");
   return {
     ...meta(input.verified && notes.length===0?"verified":"partial",["helius","rpc","derived"],input.observedAtMs,notes),
-    marketPhase:input.phase,curveVirtualSolReserves:input.curveVirtualSolReserves,
-    curveRealSolReserves:input.curveRealSolReserves,curveTokenReserves:input.curveTokenReserves,
-    migratedPoolLiquiditySol:input.migratedPoolLiquiditySol,lpBurnedPct:input.lpBurnedPct,
-    lpLockedPct:input.lpLockedPct,lpUnlockAtMs:input.lpUnlockAtMs,
-    lpAuthorityRevoked:input.lpAuthorityRevoked,estimatedExitImpactPct:input.estimatedExitImpactPct,
-    exitCapacitySol:input.exitCapacitySol
+    marketPhase:input.phase,
+    ...(input.curveVirtualSolReserves !== undefined ? {curveVirtualSolReserves:input.curveVirtualSolReserves} : {}),
+    ...(input.curveRealSolReserves !== undefined ? {curveRealSolReserves:input.curveRealSolReserves} : {}),
+    ...(input.curveTokenReserves !== undefined ? {curveTokenReserves:input.curveTokenReserves} : {}),
+    ...(input.migratedPoolLiquiditySol !== undefined ? {migratedPoolLiquiditySol:input.migratedPoolLiquiditySol} : {}),
+    ...(input.lpBurnedPct !== undefined ? {lpBurnedPct:input.lpBurnedPct} : {}),
+    ...(input.lpLockedPct !== undefined ? {lpLockedPct:input.lpLockedPct} : {}),
+    ...(input.lpUnlockAtMs !== undefined ? {lpUnlockAtMs:input.lpUnlockAtMs} : {}),
+    ...(input.lpAuthorityRevoked !== undefined ? {lpAuthorityRevoked:input.lpAuthorityRevoked} : {}),
+    ...(input.estimatedExitImpactPct !== undefined ? {estimatedExitImpactPct:input.estimatedExitImpactPct} : {}),
+    ...(input.exitCapacitySol !== undefined ? {exitCapacitySol:input.exitCapacitySol} : {})
   };
 }
