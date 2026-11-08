@@ -104,15 +104,17 @@ async function main() {
       const key = [signature, wallet, tokenMint, side, quoteAmountRaw, tokenAmountRaw].join("|");
       swaps.set(key, { signature, blockTime, slot, venueSource: protocol, wallet, side, tokenMint, quoteMint, quoteAmountRaw, tokenAmountRaw, success });
 
-      const ws = walletStats.get(wallet) ?? { txs: new Set<string>(), tokens: new Set<string>(), buys: 0, sells: 0, first: blockTime, last: blockTime, protocols: new Set<string>() };
-      ws.txs.add(signature); ws.tokens.add(tokenMint); ws.first = Math.min(ws.first || blockTime, blockTime); ws.last = Math.max(ws.last, blockTime);
-      if (side === "buy") ws.buys++; if (side === "sell") ws.sells++; ws.protocols.add(protocol);
-      walletStats.set(wallet, ws);
-
-      const ts = tokenStats.get(tokenMint) ?? { txs: new Set<string>(), wallets: new Set<string>(), buys: 0, sells: 0, first: blockTime, last: blockTime };
-      ts.txs.add(signature); ts.wallets.add(wallet); ts.first = Math.min(ts.first || blockTime, blockTime); ts.last = Math.max(ts.last, blockTime);
-      if (side === "buy") ts.buys++; if (side === "sell") ts.sells++;
-      tokenStats.set(tokenMint, ts);
+      if (success) {
+        const ws = walletStats.get(wallet) ?? { txs: new Set<string>(), tokens: new Set<string>(), buys: 0, sells: 0, first: blockTime, last: blockTime, protocols: new Set<string>() };
+        ws.txs.add(signature); ws.tokens.add(tokenMint); ws.first = Math.min(ws.first || blockTime, blockTime); ws.last = Math.max(ws.last, blockTime);
+        if (side === "buy") ws.buys++; if (side === "sell") ws.sells++; ws.protocols.add(protocol);
+        walletStats.set(wallet, ws);
+  
+        const ts = tokenStats.get(tokenMint) ?? { txs: new Set<string>(), wallets: new Set<string>(), buys: 0, sells: 0, first: blockTime, last: blockTime };
+        ts.txs.add(signature); ts.wallets.add(wallet); ts.first = Math.min(ts.first || blockTime, blockTime); ts.last = Math.max(ts.last, blockTime);
+        if (side === "buy") ts.buys++; if (side === "sell") ts.sells++;
+        tokenStats.set(tokenMint, ts);
+      }
     }
   }
 
