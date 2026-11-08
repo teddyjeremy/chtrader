@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "research:october": "tsx src/research/october.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "research:derive": "tsx src/research/derive.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
