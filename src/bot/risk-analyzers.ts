@@ -25,13 +25,13 @@ export function analyzeHolders(input: {
   const supply = BigInt(input.supplyRaw);
   if (supply <= 0n) throw new Error("supplyRaw must be positive");
   const byOwner = new Map<string,bigint>();
-  let burned=0n, excluded=0;
+  let burned=0n, excluded=0, excludedBalance=0n;
   let creator=0n, creatorLinked=0n, cluster=0n, insider=0n;
   for (const a of input.accounts) {
     const amount=BigInt(a.amountRaw);
     if (amount < 0n) throw new Error("holder amount cannot be negative");
     if (a.isBurn) { burned+=amount; continue; }
-    if (a.isPoolOrProgram) { excluded++; continue; }
+    if (a.isPoolOrProgram) { excluded++; excludedBalance+=amount; continue; }
     byOwner.set(a.owner,(byOwner.get(a.owner)??0n)+amount);
     if (a.isCreator) creator+=amount;
     if (a.isCreator || a.isCreatorLinked) creatorLinked+=amount;
@@ -41,9 +41,11 @@ export function analyzeHolders(input: {
   const balances=[...byOwner.values()].sort((a,b)=>a>b?-1:a<b?1:0);
   const total=sum(balances);
   const notes:string[]=[];
-  if (total+burned>supply) notes.push("account_balances_exceed_reported_supply_check_snapshot_and_decimals");
+  const accounted=total+burned+excludedBalance;
+  if (accounted>supply) notes.push("account_balances_exceed_reported_supply_check_snapshot_and_decimals");
+  if (accounted<supply) notes.push("holder_balances_do_not_reconcile_to_total_supply");
   if (!input.completeSnapshot) notes.push("holder_snapshot_incomplete");
-  const status=input.completeSnapshot && total+burned<=supply ? "verified" : "partial";
+  const status=input.completeSnapshot && accounted===supply ? "verified" : "partial";
   return {
     ...meta(status,["rpc","helius"],input.observedAtMs,notes),
     supplyRaw:input.supplyRaw,decimals:input.decimals,
@@ -125,5 +127,27 @@ export function assessLiquidity(input: {
     ...(input.lpAuthorityRevoked !== undefined ? {lpAuthorityRevoked:input.lpAuthorityRevoked} : {}),
     ...(input.estimatedExitImpactPct !== undefined ? {estimatedExitImpactPct:input.estimatedExitImpactPct} : {}),
     ...(input.exitCapacitySol !== undefined ? {exitCapacitySol:input.exitCapacitySol} : {})
+  };
+}
+
+export function buildRiskAssessment(input: {
+  observedAtMs:number; liquidity:LiquidityAssessment; holders:HolderDistribution;
+  bundles:BundleAssessment; mintAuthorityRevoked:boolean|null; freezeAuthorityRevoked:boolean|null;
+  creatorSoldPct:number|null; largestHolderSelling:boolean|null; buySellRatio10s:number|null;
+  uniqueBuyers10s:number|null; failedTransactionRatePct:number|null;
+  volumeConcentrationTopWalletPct:number|null; liquidityWithdrawalDetected:boolean|null;
+  hardRiskFlags?:string[]; warnings?:string[];
+}) {
+  const statuses=[input.liquidity.status,input.holders.status,input.bundles.status];
+  const status=statuses.every(x=>x==="verified")?"verified":statuses.some(x=>x==="partial")?"partial":"unknown";
+  return {
+    status,observedAtMs:input.observedAtMs,liquidity:input.liquidity,holders:input.holders,bundles:input.bundles,
+    mintAuthorityRevoked:input.mintAuthorityRevoked,freezeAuthorityRevoked:input.freezeAuthorityRevoked,
+    creatorSoldPct:input.creatorSoldPct,largestHolderSelling:input.largestHolderSelling,
+    buySellRatio10s:input.buySellRatio10s,uniqueBuyers10s:input.uniqueBuyers10s,
+    failedTransactionRatePct:input.failedTransactionRatePct,
+    volumeConcentrationTopWalletPct:input.volumeConcentrationTopWalletPct,
+    liquidityWithdrawalDetected:input.liquidityWithdrawalDetected,
+    hardRiskFlags:input.hardRiskFlags??[],warnings:input.warnings??[]
   };
 }
