@@ -1,38 +1,33 @@
 # chtrader
 
-Deterministic Solana meme-coin research and paper-trading system. No ML/LLM trading decisions.
+Research-first Solana meme-coin trading system. The current repository is a historical data collector and strategy research scaffold, not a live trading bot. Paper trading only.
 
-## Current state
+## October 2026 Helius research
 
-- October 2026 Helius Parsed Events collector scaffolded.
-- Coverage: Pump bonding curve, PumpSwap, and Jupiter-routed swaps.
-- Strategy hypothesis documented in [docs/STRATEGY_V0.md](docs/STRATEGY_V0.md).
-- Paper-only. No wallet signing, order submission, or live trading code exists.
+1. Add the Helius key as the GitHub Actions repository secret `HELIUS_API_KEY`. Never commit or paste the key into source code or chat.
+2. Open **Actions → October 2026 Solana research → Run workflow**.
+3. Use `max_pages=0` to continue each program scan until the October window is exhausted. A positive value runs a bounded batch and saves its cursor for the next run.
+4. Wait for the workflow and download the artifact named `chtrader-october-2026-research-<run id>`.
+5. Check `derived/october-2026-collection-report.json`: every program must say `complete: true`, with `stoppedOn: windowEnd`, before calling the program backfill complete.
 
-## Configure
+The workflow checkpoints after every page and restores raw pages/checkpoints from GitHub Actions cache on later runs. It uploads raw JSONL, checkpoint JSON, derived CSVs and reports. Watch Helius credit usage: a complete month may be materially larger than the first five-page sample.
 
-1. Add a GitHub Actions repository secret named `HELIUS_API_KEY`.
-2. Open Actions → October 2026 Solana research → Run workflow.
-3. Start with `max_pages=5` to validate plan access, returned records, and credit usage. Increase only after inspecting the first artifact.
-4. Download the artifact `chtrader-october-2026-research`.
+## Current coverage
 
-Never paste the key into source code, commit it, print it, or include it in an artifact.
+- Pump bonding curve (create/buy/sell instruction families)
+- PumpSwap
+- Raydium AMM v4, CPMM and CLMM
+- Meteora DLMM, DAMM v1 and DAMM v2
+- Jupiter v6 routed swaps
 
-## Local run
+This is not every Solana DEX or launchpad, and does not by itself provide historical executable quotes or full pool reserve snapshots. See [docs/OCTOBER_DATA_PLAN.md](docs/OCTOBER_DATA_PLAN.md).
 
-Node.js 22+:
+## Research scripts
 
-```bash
-npm install
-# Set HELIUS_API_KEY in your shell, not in a committed file.
-npm run typecheck
-npm run research:october
-```
+- `npm run research:october` — paginated October collection
+- `npm run research:derive` — swap, wallet activity and token activity CSV extraction
+- `npm run typecheck` — TypeScript validation
 
-## Important research caveats
+## Strategy
 
-- Helius Parsed Events Scan is used instead of the older Enhanced Transactions API.
-- The collector pages using Helius pagination tokens and writes raw parsed records as JSONL.
-- The current program set is not a complete DEX census. Jupiter-routed swaps can overlap direct PumpSwap activity.
-- This first pass does not itself provide historical pool reserves, full OHLCV, executable quotes, or a complete token lifecycle. Those must be enriched before strategy profitability can be evaluated.
-- The research workflow never signs or sends transactions.
+See [docs/STRATEGY_V0.md](docs/STRATEGY_V0.md). All thresholds are unvalidated hypotheses. Do not enable live trading based on a partial backfill or wallet activity counts.
