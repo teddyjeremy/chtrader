@@ -10,7 +10,7 @@ if (!apiKey) {
 // UTC boundaries: include all of October 2026, exclude Nov 1.
 const start = Math.floor(Date.UTC(2026, 9, 1, 0, 0, 0) / 1000);
 const end = Math.floor(Date.UTC(2026, 10, 1, 0, 0, 0) / 1000);
-const maxPages = Number(process.env.HELIUS_MAX_PAGES ?? 250);
+const maxPages = Number(process.env.HELIUS_MAX_PAGES ?? 5);
 
 const jobs = PROGRAMS.map((program) => ({
   name: program.name,
