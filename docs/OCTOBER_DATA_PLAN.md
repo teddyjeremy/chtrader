@@ -15,7 +15,7 @@ The Helius credit cost depends on the number of history pages scanned and must b
 
 ## 2. Repair and validate parsing
 
-The first derivation had a parser-path bug: Helius puts swap data in `parsed.parsedData`, while the script only checked `parsed.summary.parsedData`. The parser now checks both. The first sample therefore undercounted recognized swaps, wallets and tokens. Re-run derivation over the retained raw files before analysing the sample.
+The derivation now accepts both `parsed.parsedData` and `parsed.summary.parsedData` to tolerate parser-shape differences. An independent re-parse of the first artifact reproduced its 2,321 deduplicated swap rows, 1,281 fee-payer addresses and 493 tokens, so those counts were not undercounted by that field-path assumption. They remain counts from a tiny end-of-month sample, not October-wide totals.
 
 The current wallet field is `feePayer`, which is only a proxy for trader identity when relayers or sponsored transactions are involved. Preserve the raw identity evidence and qualify wallet attribution before calculating PnL.
 
