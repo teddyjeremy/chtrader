@@ -60,6 +60,7 @@ export function analyzeHolders(input: {
 /** Detects candidate coordination clusters. Same-slot buys alone never establish a bundle. */
 export function analyzeBundles(input: {
   swaps: SwapObservation[]; supplyRaw: string; observedAtMs: number; historyComplete: boolean;
+  currentHoldingsByWallet?: Record<string, string>;
 }): BundleAssessment {
   const supply=BigInt(input.supplyRaw);
   const buys=input.swaps.filter(x=>x.side==="buy");
@@ -74,8 +75,8 @@ export function analyzeBundles(input: {
   for (const s of bySignature.values()) if (s.size>=2) for (const w of s) coordinated.add(w);
   const walletBuys=new Map<string,bigint>();
   for (const b of buys) walletBuys.set(b.wallet,(walletBuys.get(b.wallet)??0n)+BigInt(b.tokenAmountRaw));
-  const acquired=sum([...walletBuys.values()].filter((_,i)=>coordinated.has([...walletBuys.keys()][i])));
-  const current=0n; // Current holdings are supplied by holder-account reconstruction, not inferred from buys.
+  const acquired=sum([...coordinated].map(wallet=>walletBuys.get(wallet) ?? 0n));
+  const current=sum([...coordinated].map(wallet=>BigInt(input.currentHoldingsByWallet?.[wallet] ?? "0")));
   const slots=new Map<number,Set<string>>();
   for (const b of buys) slots.set(b.slot,new Set([...(slots.get(b.slot)??[]),b.wallet]));
   const sameSlotOnly=coordinated.size===0 && [...slots.values()].some(s=>s.size>=3);
