@@ -1,19 +1,26 @@
 # October 2026 research method
 
-## What the first collector does
+## Collection
 
-- Pump bonding-curve instructions.
-- PumpSwap instructions.
-- Jupiter v6 routed swaps, which can expose migrated-token activity through multiple venues.
-- Raw parsed transaction records are written as JSONL. The collection report records pagination and credit counters.
+The manual GitHub Actions workflow scans the exact UTC interval 2026-10-01 inclusive to 2026-11-01 exclusive across Pump bonding curve, PumpSwap, Raydium AMM v4/CPMM/CLMM, Meteora DLMM/DAMM v1/v2 and Jupiter v6 routes.
+
+- Set `max_pages=0` to follow pagination until Helius reports `windowEnd`.
+- Positive `max_pages` values are intentionally partial batches; the saved cursor resumes on the next workflow run.
+- Raw JSONL and per-program checkpoints are restored/saved with GitHub Actions cache.
+- The artifact includes raw JSONL, checkpoints, collection/derive reports and CSVs.
+- The original raw transaction payload is omitted to reduce storage; parsed instructions, transfers and summaries are retained.
+- Failed transactions are included in the raw research data. They must not be counted as successful trades or wallet PnL.
+
+A scan is complete only when no pagination token remains and `scan.stoppedOn=windowEnd`. A page cap, Helius budget/deadline, API error or timeout is incomplete. Monitor Helius credits: the full month may require substantially more requests than the initial sample.
 
 ## Important limits
 
-1. Program history is high-volume. Start with 25 pages, inspect the artifact, then increase the cap. A partial scan must never be labelled complete.
-2. PumpSwap and Jupiter results can overlap when a Jupiter route invokes PumpSwap. Deduplicate by transaction signature plus instruction index, not signature alone.
-3. Direct Raydium/Meteora coverage is not yet complete. Add their program IDs and parser names only after validating official IDs and decoded fields.
-4. The first collector does not reconstruct pool reserve snapshots or executable historical quotes. It is a transaction/event dataset, not a complete OHLCV feed.
-5. A strategy backtest cannot honestly claim profitability until historical pool prices, liquidity, venue fee schedules and realistic execution costs are joined to each trade.
+1. This is a program-level dataset, not a complete census of every Solana DEX, launchpad or token transfer.
+2. Pump create instructions are included to help build a token universe; other DEX program scans include all instructions to preserve swap, liquidity and pool lifecycle evidence.
+3. PumpSwap/Jupiter/direct venue transactions can overlap. Reconcile by signature and instruction/route evidence; do not double-count Jupiter as a separate pool fill.
+4. The first artifact stopped at five pages per program and only covered the final moments of October 31. It is not a month-wide sample.
+5. The initial derive script missed top-level `parsed.parsedData`; this has been fixed. Re-run derivation on the retained sample before using its swap counts.
+6. Historical pool states, executable quotes, decimals, token metadata, creator funding graphs and full wallet cost basis still require enrichment.
 
 ## Required derived tables
 
@@ -23,7 +30,11 @@
 - wallet_edges: funding source, recipient, timestamp, amount, evidence type, confidence.
 - pool_snapshots: pool, timestamp, base/quote reserves, price, executable depth, LP changes.
 - signals: token, timestamp, setup, feature values, decision, rejection reasons.
-- simulated_trades: signal time, delayed entry quote, delayed exit quote, fees, slippage, net PnL, exit reason.
+- token_outcomes: token/setup, rejection or acceptance time, subsequent return/MFE/MAE, liquidity change, migration and exit-route status.
+
+## Preserve rejected tokens
+
+Do not filter rejected tokens out of ingestion or delete their records. Record all token launches and observations, then attach append-only setup decisions: accepted, rejected, watchlist or unclassified. Store every rejection reason, strategy version and feature snapshot. Continue measuring what happened after rejection so the research can count both losses avoided and profitable opportunities missed.
 
 ## Avoiding false wallet alpha
 
@@ -39,4 +50,4 @@
 
 Compare with identical costs and risk limits: pullback reclaim; failed-breakout retest; post-migration base-and-reclaim; wallet-flow confirmation as a filter; buy-and-hold baseline; and no-trade baseline.
 
-Use walk-forward time splits. Report trade count, net expectancy, profit factor, max drawdown, worst 1% trade, fees as a fraction of gross gains, turnover and results by venue.
+Use walk-forward time splits. Report trade count, net expectancy, profit factor, max drawdown, worst 1% trade, fees as a fraction of gross gains, turnover and results by venue and token lifecycle.
