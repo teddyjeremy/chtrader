@@ -13,7 +13,7 @@ Deterministic Solana meme-coin research and paper-trading system. No ML/LLM trad
 
 1. Add a GitHub Actions repository secret named `HELIUS_API_KEY`.
 2. Open Actions → October 2026 Solana research → Run workflow.
-3. Start with `max_pages=25` to validate plan access, returned records, and credit usage. Increase only after inspecting the first artifact.
+3. Start with `max_pages=5` to validate plan access, returned records, and credit usage. Increase only after inspecting the first artifact.
 4. Download the artifact `chtrader-october-2026-research`.
 
 Never paste the key into source code, commit it, print it, or include it in an artifact.
