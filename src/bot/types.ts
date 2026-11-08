@@ -67,7 +67,7 @@ export type MarketSnapshot = {
 };
 export type Decision = {
   mint: string; action: DecisionAction; score: number; reasons: string[];
-  strategyVersion: "pullback-reclaim-v0.1"; timestampMs: number; snapshot: MarketSnapshot;
+  strategyVersion: "pullback-reclaim-v0.2-risk-gated"; timestampMs: number; snapshot: MarketSnapshot;
 };
 export type PaperPosition = {
   mint: string; entryPriceSol: number; quantity: number; notionalSol: number;
