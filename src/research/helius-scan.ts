@@ -1,4 +1,4 @@
-import { mkdir, appendFile, writeFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const HELIUS_SCAN_URL = "https://mainnet.helius-rpc.com/v1/parsed-events/scan";
@@ -16,16 +16,39 @@ type ScanPage = {
   error?: string;
 };
 
+type ScanStats = {
+  job: string;
+  pages: number;
+  returnedTransactions: number;
+  scannedTransactions: number;
+  matchedTransactions: number;
+  creditsCharged: number;
+  stoppedOn: string;
+  complete: boolean;
+  outputPath: string;
+};
+
+type ScanCheckpoint = ScanStats & {
+  paginationToken?: string | null;
+  scannedThrough?: { slot?: number; blockTime?: number } | null;
+  updatedAt?: string;
+};
+
 export type ScanJob = {
   name: string;
   address: string;
   match: { programs: Array<{ programId: string; instructions?: string[] }> };
   start: number;
   end: number;
+  /** 0 means continue until Helius reports windowEnd. */
   maxPages: number;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function exists(path: string): Promise<boolean> {
+  try { await access(path); return true; } catch { return false; }
+}
 
 async function requestPage(
   apiKey: string,
@@ -41,7 +64,8 @@ async function requestPage(
       time: { gte: job.start, lt: job.end },
       status: "any",
       returnShape: "transactions",
-      rawTransaction: "json",
+      // Parsed fields are sufficient for our research tables. Omitting the
+      // original raw transaction materially reduces storage and artifact size.
       limit: 100,
       budget: { maxScannedTransactions: 10_000 },
       ...(paginationToken ? { paginationToken } : {})
@@ -59,38 +83,59 @@ async function requestPage(
   return parsed;
 }
 
-export async function runScan(apiKey: string, job: ScanJob) {
+export async function runScan(apiKey: string, job: ScanJob): Promise<ScanStats> {
   const outDir = join("data", "raw");
   await mkdir(outDir, { recursive: true });
   const outputPath = join(outDir, `${job.name}-october-2026.jsonl`);
   const checkpointPath = join(outDir, `${job.name}-october-2026.checkpoint.json`);
-  await writeFile(outputPath, "", "utf8");
-  const stats = {
+
+  let saved: ScanCheckpoint | undefined;
+  if (await exists(checkpointPath)) {
+    try { saved = JSON.parse(await readFile(checkpointPath, "utf8")) as ScanCheckpoint; }
+    catch { saved = undefined; }
+  }
+
+  if (saved?.complete && await exists(outputPath)) {
+    console.log(`Skipping completed scan ${job.name}; checkpoint already says windowEnd.`);
+    return { ...saved, outputPath };
+  }
+
+  // A checkpoint without its raw file cannot be resumed safely.
+  if (!await exists(outputPath)) {
+    saved = undefined;
+    await writeFile(outputPath, "", "utf8");
+  } else if (!saved) {
+    // Avoid silently appending to an uncheckpointed/unknown dataset.
+    await writeFile(outputPath, "", "utf8");
+  }
+
+  const stats: ScanStats = {
     job: job.name,
-    pages: 0,
-    returnedTransactions: 0,
-    scannedTransactions: 0,
-    matchedTransactions: 0,
-    creditsCharged: 0,
-    stoppedOn: "not_started",
+    pages: saved?.pages ?? 0,
+    returnedTransactions: saved?.returnedTransactions ?? 0,
+    scannedTransactions: saved?.scannedTransactions ?? 0,
+    matchedTransactions: saved?.matchedTransactions ?? 0,
+    creditsCharged: saved?.creditsCharged ?? 0,
+    stoppedOn: saved?.stoppedOn ?? "not_started",
     complete: false,
     outputPath
   };
 
-  let paginationToken: string | undefined;
-  let previousToken: string | undefined;
+  let paginationToken = saved?.paginationToken ?? undefined;
+  let pagesThisRun = 0;
 
-  while (stats.pages < job.maxPages) {
+  while (job.maxPages === 0 || pagesThisRun < job.maxPages) {
     let page: ScanPage | undefined;
     let lastError: unknown;
 
-    for (let attempt = 0; attempt < Number(process.env.HELIUS_MAX_RETRIES ?? 5); attempt++) {
+    for (let attempt = 0; attempt < Number(process.env.HELIUS_MAX_RETRIES ?? 6); attempt++) {
       try {
         page = await requestPage(apiKey, job, paginationToken);
         break;
       } catch (error) {
         lastError = error;
-        const delay = Math.min(30_000, 1_000 * 2 ** attempt) + Math.floor(Math.random() * 300);
+        const delay = Math.min(60_000, 1_500 * 2 ** attempt) + Math.floor(Math.random() * 500);
+        console.warn(`Retry ${attempt + 1} for ${job.name}: ${error instanceof Error ? error.message : String(error)}`);
         await sleep(delay);
       }
     }
@@ -102,6 +147,7 @@ export async function runScan(apiKey: string, job: ScanJob) {
     }
 
     stats.pages++;
+    pagesThisRun++;
     stats.returnedTransactions += rows.length;
     stats.scannedTransactions += page.scan?.scannedTransactions ?? 0;
     stats.matchedTransactions += page.scan?.matchedTransactions ?? rows.length;
@@ -109,19 +155,40 @@ export async function runScan(apiKey: string, job: ScanJob) {
     stats.stoppedOn = page.scan?.stoppedOn ?? "unknown";
 
     const next = page.paginationToken ?? undefined;
-    await writeFile(checkpointPath, JSON.stringify({
+    stats.complete = !next && stats.stoppedOn === "windowEnd";
+
+    // Persist the cursor after every page. If a run is interrupted, the next
+    // workflow run restores this directory from Actions cache and resumes here.
+    const checkpoint: ScanCheckpoint = {
       ...stats,
       paginationToken: next ?? null,
       scannedThrough: page.scan?.scannedThrough ?? null,
       updatedAt: new Date().toISOString()
-    }, null, 2));
+    };
+    await writeFile(checkpointPath, JSON.stringify(checkpoint, null, 2));
 
-    if (!next) { stats.complete = page.scan?.stoppedOn === "windowEnd"; break; }
-    if (next === paginationToken || next === previousToken) {
-      stats.stoppedOn = "pagination_stalled";
+    console.log(JSON.stringify({
+      job: stats.job,
+      page: stats.pages,
+      pagesThisRun,
+      returnedTransactions: stats.returnedTransactions,
+      scannedTransactions: stats.scannedTransactions,
+      matchedTransactions: stats.matchedTransactions,
+      creditsCharged: stats.creditsCharged,
+      stoppedOn: stats.stoppedOn,
+      complete: stats.complete
+    }));
+
+    if (stats.complete) break;
+    if (!next) {
+      console.error(`Scan ${job.name} stopped on ${stats.stoppedOn} without a pagination token; it is NOT complete.`);
       break;
     }
-    previousToken = paginationToken;
+    if (next === paginationToken) {
+      stats.stoppedOn = "pagination_stalled";
+      await writeFile(checkpointPath, JSON.stringify({ ...stats, paginationToken: next, updatedAt: new Date().toISOString() }, null, 2));
+      break;
+    }
     paginationToken = next;
   }
 
