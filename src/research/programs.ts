@@ -1,8 +1,9 @@
 /**
  * Mainnet program registry for October 2026 research.
- * Raydium and Meteora IDs are taken from their current developer documentation.
- * For these venues we match all instructions, then classify swaps from parsed
- * instruction/event data. Jupiter routes are included for routed pool activity.
+ * The Pump bonding-curve scan includes token creation plus buy/sell instruction
+ * families. Other DEX scans intentionally include all instructions so pool
+ * creation, liquidity changes, migration-adjacent activity and swaps survive
+ * the first lifecycle research pass.
  */
 export type ProgramTarget = {
   name: string;
@@ -15,7 +16,7 @@ export const PROGRAMS: ProgramTarget[] = [
   {
     name: "pump_bonding_curve",
     programId: "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
-    instructions: ["buy", "buy_exact_sol_in", "buy_v2", "buy_exact_quote_in_v2", "sell", "sell_v2"],
+    instructions: ["create", "create_v2", "buy", "buy_exact_sol_in", "buy_v2", "buy_exact_quote_in_v2", "sell", "sell_v2"],
     market: "bonding_curve"
   },
   {
