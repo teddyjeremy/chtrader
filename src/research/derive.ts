@@ -55,6 +55,7 @@ async function main() {
   let malformedLines = 0;
   let inputRecords = 0;
   let nonSwapRecords = 0;
+  let failedSwapRecords = 0;
 
   for (const file of files) {
     const source = file.replace("-october-2026.jsonl", "");
@@ -66,7 +67,9 @@ async function main() {
       try { outer = obj(JSON.parse(line)); } catch { malformedLines++; continue; }
       const parsed = obj(outer.parsed ?? outer);
       const summary = obj(parsed.summary);
-      const parsedData = obj(summary.parsedData);
+      // Parsed Events places protocol swap data at parsed.parsedData. Some
+      // parser versions also expose it under summary.parsedData; support both.
+      const parsedData = obj(parsed.parsedData ?? summary.parsedData);
       const signature = str(outer.signature ?? parsed.signature);
       const wallet = str(parsed.feePayer ?? outer.feePayer);
       const blockTime = num(parsed.blockTime ?? outer.blockTime);
@@ -104,17 +107,17 @@ async function main() {
       const key = [signature, wallet, tokenMint, side, quoteAmountRaw, tokenAmountRaw].join("|");
       swaps.set(key, { signature, blockTime, slot, venueSource: protocol, wallet, side, tokenMint, quoteMint, quoteAmountRaw, tokenAmountRaw, success });
 
-      if (success) {
-        const ws = walletStats.get(wallet) ?? { txs: new Set<string>(), tokens: new Set<string>(), buys: 0, sells: 0, first: blockTime, last: blockTime, protocols: new Set<string>() };
-        ws.txs.add(signature); ws.tokens.add(tokenMint); ws.first = Math.min(ws.first || blockTime, blockTime); ws.last = Math.max(ws.last, blockTime);
-        if (side === "buy") ws.buys++; if (side === "sell") ws.sells++; ws.protocols.add(protocol);
-        walletStats.set(wallet, ws);
-  
-        const ts = tokenStats.get(tokenMint) ?? { txs: new Set<string>(), wallets: new Set<string>(), buys: 0, sells: 0, first: blockTime, last: blockTime };
-        ts.txs.add(signature); ts.wallets.add(wallet); ts.first = Math.min(ts.first || blockTime, blockTime); ts.last = Math.max(ts.last, blockTime);
-        if (side === "buy") ts.buys++; if (side === "sell") ts.sells++;
-        tokenStats.set(tokenMint, ts);
-      }
+      if (!success) { failedSwapRecords++; continue; }
+
+      const ws = walletStats.get(wallet) ?? { txs: new Set<string>(), tokens: new Set<string>(), buys: 0, sells: 0, first: blockTime, last: blockTime, protocols: new Set<string>() };
+      ws.txs.add(signature); ws.tokens.add(tokenMint); ws.first = Math.min(ws.first || blockTime, blockTime); ws.last = Math.max(ws.last, blockTime);
+      if (side === "buy") ws.buys++; if (side === "sell") ws.sells++; ws.protocols.add(protocol);
+      walletStats.set(wallet, ws);
+
+      const ts = tokenStats.get(tokenMint) ?? { txs: new Set<string>(), wallets: new Set<string>(), buys: 0, sells: 0, first: blockTime, last: blockTime };
+      ts.txs.add(signature); ts.wallets.add(wallet); ts.first = Math.min(ts.first || blockTime, blockTime); ts.last = Math.max(ts.last, blockTime);
+      if (side === "buy") ts.buys++; if (side === "sell") ts.sells++;
+      tokenStats.set(tokenMint, ts);
     }
   }
 
@@ -139,18 +142,20 @@ async function main() {
     tokenRows
   ));
   await writeFile(join(derivedDir, "october-2026-derive-report.json"), JSON.stringify({
-    inputFiles: files, inputRecords, malformedLines, nonSwapRecords,
-    deduplicatedSwapRows: swapRows.length, walletCount: walletRows.length, tokenCount: tokenRows.length,
+    inputFiles: files, inputRecords, malformedLines, nonSwapRecords, failedSwapRecords,
+    deduplicatedSwapRows: swapRows.length, successfulWalletCount: walletRows.length, successfulTokenCount: tokenRows.length,
+    parserFix: "Read parsed.parsedData first, falling back to summary.parsedData. The first collector's derived pass only checked summary.parsedData and missed top-level parsed swap payloads.",
     caveats: [
       "Wallet identity uses feePayer as a proxy and can be wrong for relayed or sponsored transactions.",
-      "Raw quote amounts are not USD-normalized; decimals and historical FX/price data are required.",
+      "Raw quote amounts are not USD-normalized; token/quote decimals and historical FX/price data are required.",
       "This is activity extraction, not realised PnL or a qualified smart-wallet list.",
       "Jupiter and direct venue scans can overlap; deduplication is transaction/wallet/mint/side/amount based.",
-      "Only parser-recognized swaps with quote mint SOL, WSOL or USDC are included."
+      "Only parser-recognized swaps with quote mint SOL, WSOL or USDC are included.",
+      "The token list currently represents successful parsed swaps, not every token created; launch and migration lifecycle extraction is a separate required pass."
     ],
     generatedAt: new Date().toISOString()
   }, null, 2));
-  console.log(JSON.stringify({ inputRecords, malformedLines, nonSwapRecords, swaps: swapRows.length, wallets: walletRows.length, tokens: tokenRows.length }));
+  console.log(JSON.stringify({ inputRecords, malformedLines, nonSwapRecords, failedSwapRecords, swaps: swapRows.length, wallets: walletRows.length, tokens: tokenRows.length }));
 }
 
 await main();
