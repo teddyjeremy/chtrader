@@ -25,8 +25,8 @@ function applyRiskGate(r: RiskAssessment | undefined, s: MarketSnapshot, c: Stra
   if (holders.status !== "verified") watch.push("holder_distribution_unverified");
   if (bundles.status !== "verified") watch.push("bundle_assessment_unverified");
   if (liquidity.marketPhase === "bonding_curve") {
-    if (!(liquidity.curveRealSolReserves !== undefined || liquidity.curveVirtualSolReserves !== undefined))
-      watch.push("bonding_curve_reserves_unknown");
+    if (liquidity.curveRealSolReserves === undefined) watch.push("bonding_curve_real_reserves_unknown");
+    else if (liquidity.curveRealSolReserves < c.minLiquiditySol) hard.push("insufficient_verified_curve_real_sol_reserves");
   } else if (liquidity.marketPhase === "migrated") {
     if (liquidity.migratedPoolLiquiditySol === undefined) watch.push("migrated_pool_liquidity_unknown");
     if (liquidity.lpBurnedPct === undefined && liquidity.lpLockedPct === undefined) watch.push("lp_lock_or_burn_status_unknown");
