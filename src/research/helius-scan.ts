@@ -100,12 +100,13 @@ export async function runScan(apiKey: string, job: ScanJob): Promise<ScanStats> 
     return { ...saved, outputPath };
   }
 
-  // A checkpoint without its raw file cannot be resumed safely.
-  if (!await exists(outputPath)) {
+  // A checkpoint without its raw file cannot be resumed safely. If a prior
+  // attempt stopped without a cursor, restart this program cleanly rather than
+  // append a duplicate first page on every subsequent run.
+  if (!await exists(outputPath) || (saved && !saved.complete && !saved.paginationToken)) {
     saved = undefined;
     await writeFile(outputPath, "", "utf8");
   } else if (!saved) {
-    // Avoid silently appending to an uncheckpointed/unknown dataset.
     await writeFile(outputPath, "", "utf8");
   }
 
@@ -186,7 +187,7 @@ export async function runScan(apiKey: string, job: ScanJob): Promise<ScanStats> 
     }
     if (next === paginationToken) {
       stats.stoppedOn = "pagination_stalled";
-      await writeFile(checkpointPath, JSON.stringify({ ...stats, paginationToken: next, updatedAt: new Date().toISOString() }, null, 2));
+      await writeFile(checkpointPath, JSON.stringify({ ...stats, paginationToken: null, updatedAt: new Date().toISOString() }, null, 2));
       break;
     }
     paginationToken = next;
