@@ -32,7 +32,8 @@ async function enhanced(signatures:string[]) {
 }
 async function main(){
   await mkdir(OUT,{recursive:true});
-  const asset=await rpc("getAsset",[{id:MINT}]);
+  // Helius getAsset on this RPC endpoint expects the mint as its positional string parameter.
+  const asset=await rpc("getAsset",[MINT]);
   const supply=await rpc("getTokenSupply",[MINT]);
   const largest=await rpc("getTokenLargestAccounts",[MINT,{commitment:"finalized"}]);
   const dexRes=await fetch(`https://api.dexscreener.com/token-pairs/v1/solana/${MINT}`,{signal:AbortSignal.timeout(30000)});
