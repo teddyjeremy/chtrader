@@ -42,8 +42,13 @@ export class PaperEngine {
     if (this.decisions.length > 2000) this.decisions.splice(0, this.decisions.length - 2000);
   }
   open(d: Decision, s: MarketSnapshot): boolean {
-    if (this.halted || d.action !== "buy" || this.positions.size >= this.config.maxOpenPositions || this.positions.has(s.mint)) return false;
-    if (!(s.priceSol > 0) || !s.exitRouteAvailable || s.phase !== "bonding_curve") return false;
+    const signalAgeMs = s.timestampMs - d.timestampMs;
+    if (this.halted || d.action !== "buy" || d.mint !== s.mint ||
+        signalAgeMs < 1000 || signalAgeMs > 2000 ||
+        this.positions.size >= this.config.maxOpenPositions || this.positions.has(s.mint)) return false;
+    if (!(s.priceSol > 0) || !s.dataFresh || !s.marketStateVerified ||
+        !s.exitRouteAvailable || s.phase !== "bonding_curve" ||
+        !Number.isFinite(s.estimatedRoundTripFeePct)) return false;
     const riskSol = this.equitySol * this.config.riskFraction;
     const stopDistance = s.priceSol * this.config.adaptiveExit.hardStopPct;
     const riskSizedNotional = stopDistance > 0 ? riskSol * s.priceSol / stopDistance : 0;
