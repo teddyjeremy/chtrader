@@ -1,0 +1,10 @@
+strategy,trades,wins,losses,win_rate_pct,mean_net_pct,mean_hold_seconds
+fixed_60s_trail20,1,0,1,0,-8.4102,28
+fixed_180s_trail20,1,0,1,0,-8.4102,28
+baseline_300s_trail20,1,0,1,0,-8.4102,28
+adaptive_180s_trail30_weak8,1,0,1,0,-8.4102,28
+adaptive_300s_trail30_weak8,1,0,1,0,-8.4102,28
+wide_runner_300s_trail40,1,0,1,0,-8.4102,28
+cost_aware_runner40_profit_floor,1,1,0,100,1.3572,14
+adaptive_180s_staged_tightening,1,0,1,0,-8.4102,28
+adaptive_300s_runner40_weak8_profit_floor,1,1,0,100,1.3572,14
