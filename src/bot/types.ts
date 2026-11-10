@@ -33,9 +33,11 @@ export type RiskAssessment = {
 export type MarketSnapshot = {
   mint: string; timestampMs: number; phase: MarketPhase; ageSeconds: number;
   priceSol: number; impulsePct: number; secondsSinceImpulse: number; pullbackFraction: number;
-  higherLowConfirmed: boolean; pivotReclaimed: boolean; independentBuyers10s: number;
-  buyVolumeSol10s: number; sellVolumeSol10s: number; liquiditySol: number;
-  estimatedEntryImpactPct: number; estimatedExitImpactPct: number;
+  higherLowConfirmed: boolean; pivotReclaimed: boolean; pivotReclaimPct?: number;
+  independentBuyers10s: number; buyVolumeSol10s: number; sellVolumeSol10s: number;
+  buyQuoteVolume2s?: number; sellQuoteVolume2s?: number;
+  uniqueBuyers2s?: number; uniqueSellers2s?: number; largestBuyerShare2s?: number;
+  liquiditySol: number; estimatedEntryImpactPct: number; estimatedExitImpactPct: number;
   estimatedRoundTripFeePct: number; estimatedNetworkCostSol: number;
   exitRouteAvailable: boolean; creatorDistributing: boolean;
   suspiciousClusterDominance: boolean; sameSlotRoundTripDominance: boolean;
@@ -43,7 +45,8 @@ export type MarketSnapshot = {
 };
 export type Decision = {
   mint: string; action: DecisionAction; score: number; reasons: string[];
-  strategyVersion: "pullback-reclaim-v0.2-risk-gated"; timestampMs: number; snapshot: MarketSnapshot;
+  strategyVersion: "pullback-reclaim-v0.2-risk-gated" | "pump-curve-entry-v1-adaptive-exit";
+  timestampMs: number; snapshot: MarketSnapshot;
 };
 export type PaperPosition = {
   mint: string; entryPriceSol: number; quantity: number; notionalSol: number;
