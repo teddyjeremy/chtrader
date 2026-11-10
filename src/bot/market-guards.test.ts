@@ -64,3 +64,8 @@ test("round-trip cost combines venue costs and independent transfer taxes multip
   const cost=calculateEffectiveRoundTripCostPct({baseRoundTripCostPct:3,tokenBuyTaxPct:1,tokenSellTaxPct:1,quoteTransferTaxPct:0});
   assert.ok(cost > 4.9 && cost < 5.1);
 });
+
+test("does not accept a native quote asset with a false SOL conversion",()=>{
+  const q=economics();q.quoteAsset.solPerUnit=0.5;
+  assert.ok(evaluateTokenEconomics(q,3,10_000).watch.includes("quote_asset_identity_or_sol_conversion_unverified"));
+});
