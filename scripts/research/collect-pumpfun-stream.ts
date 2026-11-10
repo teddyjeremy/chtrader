@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, appendFile, readdir, rename } from "node:fs/promises";
+import { mkdir, readFile, writeFile, appendFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 
 const PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
@@ -87,6 +87,9 @@ if (!pending) {
   state.pending = pending;
   await saveState();
 }
+
+// Discovery and enrichment are deliberately chunked. A run may stop after MAX_PAGES,
+// but every discovered page is durable and enriched before this run exits.
 while (!pending.discoveryComplete && pages < MAX_PAGES) {
   const options: Record<string, unknown> = { limit: 1000, commitment: "finalized" };
   if (pending.before) options.before = pending.before;
@@ -102,12 +105,11 @@ while (!pending.discoveryComplete && pages < MAX_PAGES) {
   pending.before = page[page.length - 1].signature;
   if (!checkpointBefore || foundCheckpoint || page.length < 1000) pending.discoveryComplete = true;
   await saveState();
-  console.log(JSON.stringify({ stage: "signature-discovery", pagesThisRun: pages, totalQueued: pending.signatures.length, checkpointFound: foundCheckpoint, discoveryComplete: pending.discoveryComplete }));
-}
-if (!pending.discoveryComplete) {
-  throw new Error("Discovery paused safely at MAX_PAGES. Progress is saved; rerun to continue walking back to the previous checkpoint.");
+  console.log(JSON.stringify({ stage: "signature-discovery", pagesThisRun: pages, queued: pending.signatures.length, checkpointFound: foundCheckpoint, discoveryComplete: pending.discoveryComplete }));
 }
 
+// Enrich all queued signatures, even if historical discovery needs another scheduled run.
+// Batch files are durable; JSONL output is deduplicated by signature before append.
 let fetchedThisRun = 0;
 let missingThisRun = 0;
 for (let offset = pending.nextOffset; offset < pending.signatures.length; offset += BATCH_SIZE) {
@@ -136,8 +138,6 @@ for (let offset = pending.nextOffset; offset < pending.signatures.length; offset
     if (row.kind === "missing") missingThisRun++;
     else fetchedThisRun++;
   }
-  // Materialize each transaction idempotently. If a runner dies after append but before
-  // checkpointing the batch, the next run detects the signature and does not duplicate it.
   const grouped = new Map<string, any[]>();
   for (const row of rows) {
     const target = row.kind === "missing" ? "missing-transactions.jsonl" : row.day + ".jsonl";
@@ -164,8 +164,18 @@ for (let offset = pending.nextOffset; offset < pending.signatures.length; offset
 
 const signaturesDiscovered = pending.signatures.length;
 const newestSignatureStored = pending.newestSignature;
-state.lastSeenSignature = newestSignatureStored ?? checkpointBefore ?? undefined;
-delete state.pending;
+const discoveryComplete = pending.discoveryComplete;
+const cursorBefore = pending.before ?? null;
+if (discoveryComplete) {
+  state.lastSeenSignature = newestSignatureStored ?? checkpointBefore ?? undefined;
+  delete state.pending;
+} else {
+  // Keep the historical cursor and anchor, but discard the now-enriched queue.
+  // Next scheduled/manual run continues with the next older page.
+  pending.signatures = [];
+  pending.nextOffset = 0;
+  state.pending = pending;
+}
 await saveState();
 
 const report = {
@@ -175,12 +185,14 @@ const report = {
   pagesScannedThisRun: pages,
   maxPages: MAX_PAGES,
   checkpointBeforeRun: checkpointBefore,
-  newestSignatureStored: newestSignatureStored,
+  newestSignatureStored: discoveryComplete ? newestSignatureStored : checkpointBefore,
   signaturesDiscovered,
   enhancedTransactionsFetchedThisRun: fetchedThisRun,
   enhancedTransactionsMissingThisRun: missingThisRun,
-  pendingWorkRemaining: false,
-  completeness: "POLL_COMPLETE_TO_CHECKPOINT",
+  discoveryComplete,
+  pendingCursorBefore: discoveryComplete ? null : cursorBefore,
+  pendingWorkRemaining: !discoveryComplete,
+  completeness: discoveryComplete ? "POLL_COMPLETE_TO_CHECKPOINT" : "HISTORICAL_CATCHUP_IN_PROGRESS",
   note: "Raw Pump program transactions only; not yet a validated mint lifecycle, bonding-curve reconstruction, strategy signal, or profitability result."
 };
 await writeFile(join(root, "latest-poll-report.json"), JSON.stringify(report, null, 2) + "\n");
