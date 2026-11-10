@@ -1,10 +1,10 @@
-import { mkdir, readFile, writeFile, appendFile, rename, unlink } from "node:fs/promises";
+import { mkdir, readFile, writeFile, appendFile, rename, unlink, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 const PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const API_KEY = process.env.HELIUS_API_KEY;
-const MAX_PAGES = Math.max(1, Number(process.env.MAX_PAGES ?? 20));
-const BATCH_SIZE = 100;
+const MAX_PAGES = Math.max(1, Number(process.env.MAX_PAGES ?? 1));
+const BATCH_SIZE = 2;
 if (!API_KEY) throw new Error("HELIUS_API_KEY is required");
 
 const root = join("data", "pumpfun-stream");
@@ -141,26 +141,43 @@ for (let offset = pending.nextOffset; offset < pending.signatures.length; offset
   }
   const grouped = new Map<string, any[]>();
   for (const row of rows) {
-    const target = row.kind === "missing" ? "missing-transactions.jsonl" : row.day + ".jsonl";
+    const target = row.kind === "missing" ? "missing-transactions" : row.day;
     const list = grouped.get(target) ?? [];
     list.push(row);
     grouped.set(target, list);
   }
-  for (const [file, additions] of grouped) {
-    const path = join(root, file);
-    let known = seenByFile.get(file);
+  for (const [prefix, additions] of grouped) {
+    let known = seenByFile.get(prefix);
+    const matching = (await readdir(root)).filter(name => name.startsWith(prefix + "-") && name.endsWith(".jsonl")).sort();
     if (!known) {
-      let existing = "";
-      try { existing = await readFile(path, "utf8"); } catch { /* new output file */ }
-      known = new Set(existing.split("\n").filter(Boolean).map(line => {
-        try { return String(JSON.parse(line).signature ?? ""); } catch { return ""; }
-      }));
-      seenByFile.set(file, known);
+      known = new Set<string>();
+      for (const name of matching) {
+        const existing = await readFile(join(root, name), "utf8");
+        for (const line of existing.split("\n").filter(Boolean)) {
+          try { known.add(String(JSON.parse(line).signature ?? "")); } catch { /* malformed historical row */ }
+        }
+      }
+      seenByFile.set(prefix, known);
     }
     const fresh = additions.filter(row => !known!.has(String(row.signature)));
-    const lines = fresh.map(row => JSON.stringify(row.kind === "missing" ? row : row.tx));
-    if (lines.length) await appendFile(path, lines.join("\n") + "\n");
-    for (const row of fresh) known!.add(String(row.signature));
+    const maxShardBytes = 20 * 1024 * 1024;
+    let shard = matching.length ? matching[matching.length - 1] : "";
+    let shardPath = shard ? join(root, shard) : "";
+    let shardBytes = shardPath ? (await stat(shardPath)).size : maxShardBytes;
+    let shardNumber = shard ? Number(shard.match(/-(\d{4})\.jsonl$/)?.[1] ?? 0) : 0;
+    for (const row of fresh) {
+      const line = JSON.stringify(row.kind === "missing" ? row : row.tx) + "\n";
+      const bytes = Buffer.byteLength(line);
+      if (!shard || shardBytes + bytes > maxShardBytes) {
+        shardNumber++;
+        shard = prefix + "-" + String(shardNumber).padStart(4, "0") + ".jsonl";
+        shardPath = join(root, shard);
+        shardBytes = 0;
+      }
+      await appendFile(shardPath, line);
+      shardBytes += bytes;
+      known!.add(String(row.signature));
+    }
   }
   pending.nextOffset = Math.min(offset + BATCH_SIZE, pending.signatures.length);
   await saveState();

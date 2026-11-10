@@ -6,3 +6,5 @@ dist/
 data/raw/
 data/derived/
 *.log
+# Temporary Helius enrichment checkpoints
+data/pumpfun-stream/batches/

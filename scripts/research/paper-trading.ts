@@ -11,6 +11,7 @@ const QUOTE_MINTS = new Set([
 const TRADE_USD = 1;
 const STARTING_EQUITY_USD = 8;
 const MAX_OPEN_POSITIONS = 3;
+const COINS_PER_PROCESSING_BATCH = 2;
 // Conservative research assumptions, not a claim of the exact fee charged on every curve trade.
 const PLATFORM_FEE_PER_SIDE = 0.01;
 const SLIPPAGE_PER_SIDE = 0.005;
@@ -116,7 +117,7 @@ function flowPass(rows: Swap[], now: number): { pass: boolean; uniqueBuyers: num
 
 async function main() {
   await mkdir(ROOT, { recursive: true });
-  const files = (await readdir(ROOT)).filter(f => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f)).sort();
+  const files = (await readdir(ROOT)).filter(f => /^[0-9]{4}-[0-9]{2}-[0-9]{2}(-[0-9]{4})?\.jsonl$/.test(f)).sort();
   const swaps = new Map<string, Swap>();
   let inputRecords = 0, malformed = 0, parsedSwaps = 0, parsedDataRecords = 0, swapEventRecords = 0;
   const observedParsedDataKeys = new Set<string>();
@@ -151,7 +152,13 @@ async function main() {
   const paperTrades: Obj[] = []; // Strict strategy-eligible fills; remain empty until risk/curve gates are verified.
   const shadowEntryBySignature = new Map<string, { mint: string; timestamp: number; priceSol: number; signalId: string }>();
   let candidateCount = 0;
-  for (const [mint, rows] of byMint) {
+  const coinEntries = [...byMint.entries()];
+  let coinBatchCount = 0;
+  for (let offset = 0; offset < coinEntries.length; offset += COINS_PER_PROCESSING_BATCH) {
+    const coinBatch = coinEntries.slice(offset, offset + COINS_PER_PROCESSING_BATCH);
+    coinBatchCount++;
+    console.log(JSON.stringify({ stage: "coin-processing-batch-start", batch: coinBatchCount, coinsInBatch: coinBatch.length, totalCoins: coinEntries.length }));
+    for (const [mint, rows] of coinBatch) {
     rows.sort((a, b) => a.timestamp - b.timestamp || a.signature.localeCompare(b.signature));
     for (let i = 0; i < rows.length; i++) {
       const current = rows[i];
@@ -195,6 +202,8 @@ async function main() {
         paperOnly: true
       });
     }
+  }
+    console.log(JSON.stringify({ stage: "coin-processing-batch-complete", batch: coinBatchCount, processedCoins: Math.min(offset + coinBatch.length, coinEntries.length), totalCoins: coinEntries.length }));
   }
 
   // Shadow fills are deliberately separate from strategy-eligible paper trades.
