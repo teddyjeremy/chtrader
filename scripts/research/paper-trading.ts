@@ -15,7 +15,6 @@ const MAX_OPEN_POSITIONS = 3;
 const PLATFORM_FEE_PER_SIDE = 0.01;
 const SLIPPAGE_PER_SIDE = 0.005;
 const NETWORK_FEE_USD_PER_SIDE = 0.001;
-const MIN_NET_EDGE_AFTER_COSTS = 0.04;
 
 type Obj = Record<string, any>;
 type Swap = {
@@ -140,7 +139,8 @@ async function main() {
     rows.push(swap); byMint.set(swap.mint, rows);
   }
   const signals: Obj[] = [];
-  const paperTrades: Obj[] = [];
+  const paperTrades: Obj[] = []; // Strict strategy-eligible fills; remain empty until risk/curve gates are verified.
+  const shadowEntryBySignature = new Map<string, { mint: string; timestamp: number; priceSol: number; signalId: string }>();
   let candidateCount = 0;
   for (const [mint, rows] of byMint) {
     rows.sort((a, b) => a.timestamp - b.timestamp || a.signature.localeCompare(b.signature));
@@ -166,10 +166,21 @@ async function main() {
       reasons.push("Creator identity and creator-wallet selling are not verified");
       reasons.push("Bonding-curve reserves, token taxes and executable exit impact are not verified");
       const signalId = mint + ":" + current.timestamp + ":" + current.signature;
+      const shadowCandidate = reclaimed && flow.pass;
+      if (shadowCandidate) {
+        const next = rows.slice(i + 1).find(r => r.timestamp >= current.timestamp + 1 && r.timestamp <= current.timestamp + 4);
+        if (next && next.priceSol >= current.priceSol * 0.99 && next.priceSol <= current.priceSol * 1.02) {
+          const entryHistory = rows.filter(r => r.timestamp >= next.timestamp - 60 && r.timestamp <= next.timestamp);
+          if (flowPass(entryHistory, next.timestamp).pass) {
+            shadowEntryBySignature.set(next.signature, { mint, timestamp: next.timestamp, priceSol: next.priceSol, signalId });
+          }
+        }
+      }
       signals.push({
         signalId, timestamp: current.timestamp, mint, signature: current.signature,
         priceSol: current.priceSol, impulsePct, pullbackPct, reclaimed,
         uniqueBuyersInFlowWindows: flow.uniqueBuyers,
+        shadowCandidate,
         decision: "WATCH", reasons,
         strategyVersion: "pullback-reclaim-v2",
         paperOnly: true
@@ -177,9 +188,79 @@ async function main() {
     }
   }
 
+  // Shadow fills are deliberately separate from strategy-eligible paper trades.
+  // They test the price/flow setup while the unverified creator/curve gates remain WATCH.
+  const allSwaps = [...swaps.values()].sort((a, b) => a.timestamp - b.timestamp || a.signature.localeCompare(b.signature));
+  const open: Obj[] = [];
+  const shadowTrades: Obj[] = [];
+  let cashUsd = STARTING_EQUITY_USD;
+  let realizedPnlUsd = 0;
+  const buyCostUsd = TRADE_USD * (1 + PLATFORM_FEE_PER_SIDE + SLIPPAGE_PER_SIDE) + NETWORK_FEE_USD_PER_SIDE;
+  for (const event of allSwaps) {
+    for (let p = open.length - 1; p >= 0; p--) {
+      const position = open[p];
+      if (position.mint !== event.mint || event.timestamp < position.entryTime) continue;
+      position.lastPriceSol = event.priceSol;
+      position.highWaterPriceSol = Math.max(position.highWaterPriceSol, event.priceSol);
+      const peakPct = (position.highWaterPriceSol / position.entryPriceSol - 1) * 100;
+      const hardStop = position.entryPriceSol * 0.95;
+      const trailStop = peakPct >= 10 ? position.highWaterPriceSol * 0.60 : 0;
+      const protectedFloor = peakPct >= 200 ? position.entryPriceSol * 1.80
+        : peakPct >= 100 ? position.entryPriceSol * 1.40
+        : peakPct >= 50 ? position.entryPriceSol * 1.15
+        : peakPct >= 10 ? position.entryPriceSol * 1.05 : 0;
+      const effectiveStop = Math.max(hardStop, trailStop, protectedFloor);
+      const heldSeconds = event.timestamp - position.entryTime;
+      const exitReason = event.priceSol <= effectiveStop ? "adaptive_stop_or_profit_floor"
+        : heldSeconds >= 300 ? "max_hold_300s" : "";
+      if (!exitReason) continue;
+      const grossExitUsd = TRADE_USD * event.priceSol / position.entryPriceSol;
+      const sellCostsUsd = grossExitUsd * (PLATFORM_FEE_PER_SIDE + SLIPPAGE_PER_SIDE) + NETWORK_FEE_USD_PER_SIDE;
+      const netExitUsd = grossExitUsd - sellCostsUsd;
+      const pnlUsd = netExitUsd - buyCostUsd;
+      cashUsd += netExitUsd;
+      realizedPnlUsd += pnlUsd;
+      shadowTrades.push({
+        tradeId: position.tradeId, signalId: position.signalId, mint: position.mint,
+        entrySignature: position.entrySignature, exitSignature: event.signature,
+        entryTime: position.entryTime, exitTime: event.timestamp,
+        entryPriceSol: position.entryPriceSol, exitPriceSol: event.priceSol,
+        notionalUsd: TRADE_USD, grossExitUsd, buyCostUsd, sellCostsUsd,
+        pnlUsd: Number(pnlUsd.toFixed(6)), returnPct: Number((pnlUsd / buyCostUsd * 100).toFixed(3)),
+        peakReturnPct: Number(peakPct.toFixed(3)), heldSeconds, exitReason,
+        status: "CLOSED_SHADOW_ONLY", riskGatesBypassed: ["creator verification", "curve reserve/exit-route verification", "tax verification", "impact verification"]
+      });
+      open.splice(p, 1);
+    }
+    const candidate = shadowEntryBySignature.get(event.signature);
+    if (candidate && candidate.mint === event.mint && open.length < MAX_OPEN_POSITIONS && cashUsd >= buyCostUsd) {
+      const tradeId = candidate.mint + ":" + candidate.timestamp + ":" + event.signature;
+      open.push({
+        tradeId, signalId: candidate.signalId, mint: candidate.mint,
+        entrySignature: event.signature, entryTime: event.timestamp,
+        entryPriceSol: event.priceSol, highWaterPriceSol: event.priceSol,
+        lastPriceSol: event.priceSol, notionalUsd: TRADE_USD, buyCostUsd,
+        status: "OPEN_SHADOW_ONLY"
+      });
+      cashUsd -= buyCostUsd;
+    }
+  }
+  const openPositions = open.map(position => {
+    const grossMarkUsd = TRADE_USD * position.lastPriceSol / position.entryPriceSol;
+    const estimatedSellCostsUsd = grossMarkUsd * (PLATFORM_FEE_PER_SIDE + SLIPPAGE_PER_SIDE) + NETWORK_FEE_USD_PER_SIDE;
+    return {
+      ...position,
+      grossMarkUsd,
+      estimatedSellCostsUsd,
+      estimatedNetLiquidationUsd: grossMarkUsd - estimatedSellCostsUsd,
+      unrealizedPnlUsd: grossMarkUsd - estimatedSellCostsUsd - buyCostUsd
+    };
+  });
   const signalText = signals.map(s => JSON.stringify(s)).join("\n") + (signals.length ? "\n" : "");
   await writeFile(join(ROOT, "paper-signals.jsonl"), signalText);
   await writeFile(join(ROOT, "paper-trades.jsonl"), paperTrades.map(t => JSON.stringify(t)).join("\n") + (paperTrades.length ? "\n" : ""));
+  await writeFile(join(ROOT, "shadow-paper-trades.jsonl"), shadowTrades.map(t => JSON.stringify(t)).join("\n") + (shadowTrades.length ? "\n" : ""));
+  await writeFile(join(ROOT, "paper-open-positions.json"), JSON.stringify(openPositions, null, 2) + "\n");
   const roundTripFeeUsd = 2 * (TRADE_USD * PLATFORM_FEE_PER_SIDE + TRADE_USD * SLIPPAGE_PER_SIDE + NETWORK_FEE_USD_PER_SIDE);
   const report = {
     generatedAt: new Date().toISOString(),
@@ -189,25 +270,32 @@ async function main() {
     distinctSwapRows: swaps.size, tokensWithSwaps: byMint.size,
     pullbackCandidates: candidateCount, watchSignals: signals.length,
     paperTradesOpened: paperTrades.length,
+    shadowTradesClosed: shadowTrades.length,
+    shadowWins: shadowTrades.filter(t => n(t.pnlUsd) > 0).length,
+    shadowLosses: shadowTrades.filter(t => n(t.pnlUsd) <= 0).length,
+    shadowWinRatePct: shadowTrades.length ? Number((shadowTrades.filter(t => n(t.pnlUsd) > 0).length / shadowTrades.length * 100).toFixed(2)) : 0,
+    shadowRealizedPnlUsd: Number(realizedPnlUsd.toFixed(6)),
+    shadowOpenPositions: openPositions.length,
+    shadowUnrealizedPnlUsd: Number(openPositions.reduce((sum, p) => sum + n(p.unrealizedPnlUsd), 0).toFixed(6)),
+    shadowCashUsd: Number(cashUsd.toFixed(6)),
     tradeAmountUsd: TRADE_USD,
     startingPaperEquityUsd: STARTING_EQUITY_USD,
     maxSimultaneousPositions: MAX_OPEN_POSITIONS,
     feeAssumptions: {
-      platformAndCreatorFeePerSidePct: PLATFORM_FEE_PER_SIDE * 100,
+      assumedVenueFeePerSidePct: PLATFORM_FEE_PER_SIDE * 100,
       slippagePerSidePct: SLIPPAGE_PER_SIDE * 100,
       networkFeeUsdPerSide: NETWORK_FEE_USD_PER_SIDE,
       estimatedRoundTripCostUsdAtFlatPrice: Number(roundTripFeeUsd.toFixed(4)),
       estimatedRoundTripCostPctOfOneDollar: Number((roundTripFeeUsd / TRADE_USD * 100).toFixed(2)),
-      breakEvenGrossMovePctApprox: 3.2,
-      note: "Approximation for research only. Actual Pump.fun/creator fees, priority fees, route impact and slippage vary by transaction."
+      breakEvenGrossMovePctApprox: 3.25,
+      exampleAtFlatPrice: { entryFeeUsd: 0.01, entrySlippageUsd: 0.005, entryNetworkUsd: 0.001, exitFeeUsd: 0.01, exitSlippageUsd: 0.005, exitNetworkUsd: 0.001, totalRoundTripCostUsd: 0.032 },
+      note: "Approximation for research only. Actual venue/creator fees, priority fees, route impact and slippage vary by transaction."
     },
     status: signals.length
-      ? "Signals are recorded as WATCH because creator-risk and bonding-curve exit verification are not yet available; no unverified trades were fabricated."
+      ? "Strategy-eligible trades remain blocked as WATCH until creator-risk and bonding-curve exit verification are available. Separate shadow-only $1 simulations measure price/flow setups without treating them as valid strategy trades."
       : "No qualifying pullback candidates were found in the parsed swap feed.",
-    outputs: ["paper-signals.jsonl", "paper-trades.jsonl", "paper-trading-report.json"]
+    outputs: ["paper-signals.jsonl", "paper-trades.jsonl", "shadow-paper-trades.jsonl", "paper-open-positions.json", "paper-trading-report.json"]
   };
-  // Correct the percent field explicitly (kept separate to avoid hidden fee rounding).
-  report.feeAssumptions.estimatedRoundTripCostPctOfOneDollar = Number((roundTripFeeUsd / TRADE_USD * 100).toFixed(2));
   await writeFile(join(ROOT, "paper-trading-report.json"), JSON.stringify(report, null, 2) + "\n");
   console.log("PAPER_TRADING_REPORT " + JSON.stringify(report));
 }
