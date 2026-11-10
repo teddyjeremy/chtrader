@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, appendFile, rename } from "node:fs/promises";
+import { mkdir, readFile, writeFile, appendFile, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
 
 const PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
@@ -159,6 +159,7 @@ for (let offset = pending.nextOffset; offset < pending.signatures.length; offset
   }
   pending.nextOffset = Math.min(offset + BATCH_SIZE, pending.signatures.length);
   await saveState();
+  await unlink(batchPath).catch(() => undefined);
   console.log(JSON.stringify({ stage: "batch-checkpoint", completed: pending.nextOffset, total: pending.signatures.length, fetchedThisRun, missingThisRun }));
 }
 
