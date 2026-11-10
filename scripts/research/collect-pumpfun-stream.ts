@@ -136,3 +136,5 @@ const report = {
 };
 await writeFile(join(root, "latest-poll-report.json"), JSON.stringify(report, null, 2) + "\n");
 console.log("PUMPFUN_STREAM_REPORT " + JSON.stringify(report));
+
+// Scheduled collector entry point; raw transaction records are preserved for later feature extraction.
