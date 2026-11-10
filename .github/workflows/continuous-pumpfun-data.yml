@@ -40,10 +40,17 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Validate research scripts compile
+        run: >-
+          npx tsc --noEmit --target ES2022 --module NodeNext
+          --moduleResolution NodeNext --skipLibCheck --types node
+          scripts/research/collect-pumpfun-stream.ts
+          scripts/research/paper-trading.ts
 
       - name: Collect and checkpoint Pump.fun transactions
         env:
