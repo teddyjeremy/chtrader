@@ -1,18 +1,34 @@
-import { mkdir, readFile, writeFile, appendFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, appendFile, readdir, rename } from "node:fs/promises";
 import { join } from "node:path";
 
 const PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const API_KEY = process.env.HELIUS_API_KEY;
 const MAX_PAGES = Math.max(1, Number(process.env.MAX_PAGES ?? 20));
+const BATCH_SIZE = 100;
 if (!API_KEY) throw new Error("HELIUS_API_KEY is required");
 
 const root = join("data", "pumpfun-stream");
-await mkdir(root, { recursive: true });
+const batchesDir = join(root, "batches");
+await mkdir(batchesDir, { recursive: true });
 const statePath = join(root, "state.json");
-type State = { lastSeenSignature?: string; updatedAt?: string };
+type SignatureRow = { signature: string; slot: number; blockTime?: number | null };
+type Pending = {
+  newestSignature: string | null;
+  signatures: SignatureRow[];
+  before?: string;
+  discoveryComplete: boolean;
+  nextOffset: number;
+};
+type State = { lastSeenSignature?: string; updatedAt?: string; pending?: Pending };
 let state: State = {};
 try { state = JSON.parse(await readFile(statePath, "utf8")) as State; } catch { /* first run */ }
-const previousCheckpoint = state.lastSeenSignature ?? null;
+const checkpointBefore = state.lastSeenSignature ?? null;
+const saveState = async () => {
+  state.updatedAt = new Date().toISOString();
+  const temp = statePath + ".tmp";
+  await writeFile(temp, JSON.stringify(state, null, 2) + "\n");
+  await rename(temp, statePath);
+};
 
 const rpcUrl = "https://mainnet.helius-rpc.com/?api-key=" + encodeURIComponent(API_KEY);
 const enhancedUrl = "https://api.helius.xyz/v0/transactions?api-key=" + encodeURIComponent(API_KEY);
@@ -30,10 +46,13 @@ async function rpc(method: string, params: unknown[]): Promise<any> {
       body: JSON.stringify({ jsonrpc: "2.0", id: "pumpfun-stream", method, params }),
       signal: AbortSignal.timeout(60_000)
     });
-    const body = await response.json() as any;
-    if (response.ok && !body.error) return body.result;
-    const detail = JSON.stringify(body).slice(0, 500);
-    if (response.status !== 429 && response.status < 500) throw new Error(method + ": " + detail);
+    const raw = await response.text();
+    let body: any;
+    try { body = JSON.parse(raw); } catch { body = raw; }
+    if (response.ok && !body?.error) return body.result;
+    const detail = typeof body === "string" ? body : JSON.stringify(body);
+    if (response.status !== 429 && response.status < 500) throw new Error(method + ": " + detail.slice(0, 500));
+    if (/credit|monthly quota|out of quota/i.test(detail)) throw new Error("Helius RPC quota exhausted: " + detail.slice(0, 500));
     await wait(Math.min(30_000, 1000 * 2 ** attempt));
   }
   throw new Error(method + " retries exhausted");
@@ -55,87 +74,114 @@ async function enhanced(signatures: string[]): Promise<any[]> {
     if (response.ok) return Array.isArray(body) ? body : [];
     const detail = typeof body === "string" ? body : JSON.stringify(body);
     if (response.status !== 429 && response.status < 500) throw new Error("Helius Enhanced API: " + detail.slice(0, 500));
-    if (/credit|monthly quota|out of quota/i.test(detail)) throw new Error("Helius quota exhausted: " + detail.slice(0, 500));
+    if (/credit|monthly quota|out of quota/i.test(detail)) throw new Error("Helius Enhanced API quota exhausted: " + detail.slice(0, 500));
     await wait(Math.min(30_000, 1500 * 2 ** attempt));
   }
   throw new Error("Enhanced API retries exhausted");
 }
 
-const discovered: any[] = [];
-let before: string | undefined;
+let pending = state.pending;
 let pages = 0;
-let reachedCheckpoint = false;
-while (pages < MAX_PAGES && !reachedCheckpoint) {
-  const options: Record<string, unknown> = { limit: 1000, commitment: "finalized" };
-  if (before) options.before = before;
-  const page = await rpc("getSignaturesForAddress", [PROGRAM, options]) as any[];
-  pages++;
-  if (!page.length) { reachedCheckpoint = true; break; }
-  for (const row of page) {
-    if (previousCheckpoint && row.signature === previousCheckpoint) {
-      reachedCheckpoint = true;
-      break;
-    }
-    discovered.push(row);
-  }
-  before = page[page.length - 1].signature;
-  if (!previousCheckpoint) reachedCheckpoint = true; // Bootstrap with only the latest page; subsequent runs use the checkpoint.
-  console.log(JSON.stringify({ stage: "signature-poll", pages, pageSize: page.length, newSignatures: discovered.length, checkpointFound: reachedCheckpoint }));
-  if (page.length < 1000) { reachedCheckpoint = true; break; }
+if (!pending) {
+  pending = { newestSignature: null, signatures: [], discoveryComplete: false, nextOffset: 0 };
+  state.pending = pending;
+  await saveState();
 }
-if (previousCheckpoint && !reachedCheckpoint && pages >= MAX_PAGES) {
-  throw new Error("Checkpoint not reached within MAX_PAGES. Refusing to advance cursor; increase MAX_PAGES and rerun.");
+while (!pending.discoveryComplete && pages < MAX_PAGES) {
+  const options: Record<string, unknown> = { limit: 1000, commitment: "finalized" };
+  if (pending.before) options.before = pending.before;
+  const page = await rpc("getSignaturesForAddress", [PROGRAM, options]) as SignatureRow[];
+  pages++;
+  if (!page.length) { pending.discoveryComplete = true; break; }
+  if (!pending.newestSignature) pending.newestSignature = page[0].signature;
+  let foundCheckpoint = false;
+  for (const row of page) {
+    if (checkpointBefore && row.signature === checkpointBefore) { foundCheckpoint = true; break; }
+    pending.signatures.push(row);
+  }
+  pending.before = page[page.length - 1].signature;
+  if (!checkpointBefore || foundCheckpoint || page.length < 1000) pending.discoveryComplete = true;
+  await saveState();
+  console.log(JSON.stringify({ stage: "signature-discovery", pagesThisRun: pages, totalQueued: pending.signatures.length, checkpointFound: foundCheckpoint, discoveryComplete: pending.discoveryComplete }));
+}
+if (!pending.discoveryComplete) {
+  throw new Error("Discovery paused safely at MAX_PAGES. Progress is saved; rerun to continue walking back to the previous checkpoint.");
 }
 
-const firstSignature = discovered[0]?.signature;
-const byDay = new Map<string, any[]>();
-let fetched = 0;
-let missing = 0;
-const missingRows: any[] = [];
-for (let offset = 0; offset < discovered.length; offset += 100) {
-  const batch = discovered.slice(offset, offset + 100);
-  const txs = await enhanced(batch.map(row => row.signature));
-  const bySignature = new Map(txs.map(tx => [String(tx.signature), tx]));
-  for (const sig of batch) {
-    const tx = bySignature.get(sig.signature);
-    if (!tx) { missing++; missingRows.push({ signature: sig.signature, slot: sig.slot, blockTime: sig.blockTime ?? null, status: "enhanced_transaction_missing" }); continue; }
-    fetched++;
-    const timestamp = Number(tx.timestamp ?? sig.blockTime ?? 0);
-    const day = timestamp > 0 ? new Date(timestamp * 1000).toISOString().slice(0, 10) : "unknown-date";
-    const rows = byDay.get(day) ?? [];
-    rows.push(tx);
-    byDay.set(day, rows);
+let fetchedThisRun = 0;
+let missingThisRun = 0;
+for (let offset = pending.nextOffset; offset < pending.signatures.length; offset += BATCH_SIZE) {
+  const batch = pending.signatures.slice(offset, offset + BATCH_SIZE);
+  const batchName = `batch-${String(offset).padStart(10, "0")}-${batch[0].signature}-${batch[batch.length - 1].signature}.jsonl`;
+  const batchPath = join(batchesDir, batchName);
+  let rows: any[];
+  try {
+    const existing = await readFile(batchPath, "utf8");
+    rows = existing.trim() ? existing.trim().split("\n").map(line => JSON.parse(line)) : [];
+  } catch {
+    const txs = await enhanced(batch.map(row => row.signature));
+    const bySignature = new Map(txs.map(tx => [String(tx.signature), tx]));
+    rows = batch.map(sig => {
+      const tx = bySignature.get(sig.signature);
+      if (!tx) return { kind: "missing", signature: sig.signature, slot: sig.slot, blockTime: sig.blockTime ?? null, status: "enhanced_transaction_missing" };
+      const timestamp = Number(tx.timestamp ?? sig.blockTime ?? 0);
+      const day = timestamp > 0 ? new Date(timestamp * 1000).toISOString().slice(0, 10) : "unknown-date";
+      return { kind: "transaction", day, signature: sig.signature, tx };
+    });
+    const temp = batchPath + ".tmp";
+    await writeFile(temp, rows.map(row => JSON.stringify(row)).join("\n") + "\n");
+    await rename(temp, batchPath);
   }
-  console.log(JSON.stringify({ stage: "transaction-enrichment", processed: Math.min(offset + 100, discovered.length), total: discovered.length, fetched, missing }));
+  for (const row of rows) {
+    if (row.kind === "missing") missingThisRun++;
+    else fetchedThisRun++;
+  }
+  // Materialize each transaction idempotently. If a runner dies after append but before
+  // checkpointing the batch, the next run detects the signature and does not duplicate it.
+  const grouped = new Map<string, any[]>();
+  for (const row of rows) {
+    const target = row.kind === "missing" ? "missing-transactions.jsonl" : row.day + ".jsonl";
+    const list = grouped.get(target) ?? [];
+    list.push(row);
+    grouped.set(target, list);
+  }
+  for (const [file, additions] of grouped) {
+    const path = join(root, file);
+    let existing = "";
+    try { existing = await readFile(path, "utf8"); } catch { /* new output file */ }
+    const known = new Set(existing.split("\n").filter(Boolean).map(line => {
+      try { return String(JSON.parse(line).signature ?? ""); } catch { return ""; }
+    }));
+    const lines = additions.filter(row => !known.has(String(row.signature))).map(row =>
+      JSON.stringify(row.kind === "missing" ? row : row.tx)
+    );
+    if (lines.length) await appendFile(path, lines.join("\n") + "\n");
+  }
+  pending.nextOffset = Math.min(offset + BATCH_SIZE, pending.signatures.length);
+  await saveState();
+  console.log(JSON.stringify({ stage: "batch-checkpoint", completed: pending.nextOffset, total: pending.signatures.length, fetchedThisRun, missingThisRun }));
 }
-for (const [day, rows] of byDay) {
-  const path = join(root, day + ".jsonl");
-  for (const tx of rows) await appendFile(path, JSON.stringify(tx) + "\n");
-}
-if (missingRows.length) {
-  const path = join(root, "missing-transactions.jsonl");
-  for (const row of missingRows) await appendFile(path, JSON.stringify(row) + "\n");
-}
-if (firstSignature) {
-  state = { lastSeenSignature: firstSignature, updatedAt: new Date().toISOString() };
-  await writeFile(statePath, JSON.stringify(state, null, 2) + "\n");
-}
+
+const signaturesDiscovered = pending.signatures.length;
+const newestSignatureStored = pending.newestSignature;
+state.lastSeenSignature = newestSignatureStored ?? checkpointBefore ?? undefined;
+delete state.pending;
+await saveState();
+
 const report = {
   generatedAt: new Date().toISOString(),
   source: "Helius Solana RPC + Enhanced Transactions",
   program: PROGRAM,
-  pagesScanned: pages,
+  pagesScannedThisRun: pages,
   maxPages: MAX_PAGES,
-  checkpointBeforeRun: previousCheckpoint,
-  checkpointReached: reachedCheckpoint,
-  newestSignatureStored: firstSignature ?? null,
-  signaturesDiscovered: discovered.length,
-  enhancedTransactionsFetched: fetched,
-  enhancedTransactionsMissing: missing,
-  completeness: previousCheckpoint && !reachedCheckpoint ? "INCOMPLETE_CHECKPOINT_NOT_REACHED" : "POLL_COMPLETE_TO_CHECKPOINT",
-  note: "Raw Pump program transactions only. Not yet a validated mint lifecycle, bonding-curve reconstruction, strategy signal, or profitability result."
+  checkpointBeforeRun: checkpointBefore,
+  newestSignatureStored: newestSignatureStored,
+  signaturesDiscovered,
+  enhancedTransactionsFetchedThisRun: fetchedThisRun,
+  enhancedTransactionsMissingThisRun: missingThisRun,
+  pendingWorkRemaining: false,
+  completeness: "POLL_COMPLETE_TO_CHECKPOINT",
+  note: "Raw Pump program transactions only; not yet a validated mint lifecycle, bonding-curve reconstruction, strategy signal, or profitability result."
 };
 await writeFile(join(root, "latest-poll-report.json"), JSON.stringify(report, null, 2) + "\n");
 console.log("PUMPFUN_STREAM_REPORT " + JSON.stringify(report));
-
-// Scheduled collector entry point; raw transaction records are preserved for later feature extraction.
