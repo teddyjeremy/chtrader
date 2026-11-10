@@ -196,7 +196,7 @@ async function main() {
       slippagePerSidePct: SLIPPAGE_PER_SIDE * 100,
       networkFeeUsdPerSide: NETWORK_FEE_USD_PER_SIDE,
       estimatedRoundTripCostUsdAtFlatPrice: Number(roundTripFeeUsd.toFixed(4)),
-      estimatedRoundTripCostPctOfOneDollar: Number(roundTripFeeUsd / TRADE_USD * 100 .toFixed?.(2) ?? 0),
+      estimatedRoundTripCostPctOfOneDollar: Number((roundTripFeeUsd / TRADE_USD * 100).toFixed(2)),
       breakEvenGrossMovePctApprox: 3.2,
       note: "Approximation for research only. Actual Pump.fun/creator fees, priority fees, route impact and slippage vary by transaction."
     },
