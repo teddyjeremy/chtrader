@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-11-10T16:58:22.319Z",
+  "source": "Helius Solana RPC + Enhanced Transactions",
+  "program": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+  "pagesScanned": 0,
+  "maxPages": 20,
+  "checkpointBeforeRun": null,
+  "checkpointReached": true,
+  "newestSignatureStored": null,
+  "signaturesDiscovered": 0,
+  "enhancedTransactionsFetched": 0,
+  "enhancedTransactionsMissing": 0,
+  "completeness": "POLL_COMPLETE_TO_CHECKPOINT",
+  "note": "Raw Pump program transactions only. Not yet a validated mint lifecycle, bonding-curve reconstruction, strategy signal, or profitability result."
+}
