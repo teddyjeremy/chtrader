@@ -33,8 +33,9 @@ const first = (...values: unknown[]): unknown => values.find(v => v !== undefine
 function humanAmount(value: unknown, decimals: unknown, isSol: boolean): number {
   const raw = n(value);
   if (!(raw > 0)) return 0;
+  const hasDecimals = decimals !== undefined && decimals !== null && decimals !== "";
   const d = n(decimals);
-  if (Number.isInteger(d) && d >= 0 && d <= 18) return raw / 10 ** d;
+  if (hasDecimals && Number.isInteger(d) && d >= 0 && d <= 18) return raw / 10 ** d;
   if (isSol && raw > 1000) return raw / 1e9;
   // Do not guess token decimals when a parser only supplied a raw integer.
   if (!isSol && Number.isInteger(raw) && raw >= 1_000_000) return 0;
