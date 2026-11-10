@@ -1,6 +1,11 @@
 name: Continuous Pump.fun market data
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/research/collect-pumpfun-stream.ts"
+      - ".github/workflows/continuous-pumpfun-data.yml"
   schedule:
     - cron: "5,20,35,50 * * * *"
   workflow_dispatch:
