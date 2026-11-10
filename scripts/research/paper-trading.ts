@@ -46,13 +46,57 @@ function extractSwap(line: Obj): Swap | null {
   const summary = obj(parsed.summary);
   const pd = obj(first(parsed.parsedData, summary.parsedData, line.parsedData));
   const signature = str(first(line.signature, parsed.signature));
-  const timestamp = n(first(line.timestamp, parsed.blockTime, line.blockTime));
-  const wallet = str(first(parsed.feePayer, line.feePayer, line.accountData?.[0]?.account));
+  const timestamp = n(first(line.timestamp, parsed.timestamp, parsed.blockTime, line.blockTime));
+  const swap = obj(obj(parsed.events ?? line.events).swap);
+  const tokenInputs = Array.isArray(swap.tokenInputs) ? swap.tokenInputs.map(obj) : [];
+  const tokenOutputs = Array.isArray(swap.tokenOutputs) ? swap.tokenOutputs.map(obj) : [];
+  const nativeIn = obj(swap.nativeInput);
+  const nativeOut = obj(swap.nativeOutput);
+  const firstToken = (...items: Obj[]) => items[0] ?? {};
+  const wallet = str(first(
+    parsed.feePayer, parsed.fee_payer, line.feePayer, line.fee_payer,
+    parsed.accountData?.[0]?.account, line.accountData?.[0]?.account,
+    tokenInputs[0]?.fromUserAccount, tokenOutputs[0]?.toUserAccount
+  ));
   if (!signature || !timestamp || !wallet) return null;
   const status = str(first(parsed.transactionStatus, line.transactionStatus, line.parserStatus));
   if (status && !["OK", "Success", "succeeded", "success"].includes(status)) return null;
-  if (line.transactionError || line.meta?.err) return null;
+  if (line.transactionError || parsed.transactionError || line.meta?.err || parsed.meta?.err) return null;
 
+  const nativeSol = (value: unknown): number => {
+    const raw = n(value);
+    return raw > 0 ? raw / 1e9 : 0;
+  };
+  const tokenUiAmount = (token: Obj): number => {
+    const raw = obj(token.rawTokenAmount);
+    if (raw.tokenAmount !== undefined && raw.decimals !== undefined) {
+      const decimals = n(raw.decimals);
+      const amount = n(raw.tokenAmount);
+      return Number.isInteger(decimals) && decimals >= 0 && decimals <= 18 ? amount / 10 ** decimals : 0;
+    }
+    // Helius' tokenAmount field is already UI-adjusted on Enhanced Transaction swap events.
+    return n(first(token.tokenAmount, token.amount));
+  };
+  const make = (mint: unknown, side: "buy" | "sell", quote: number, tokens: number): Swap | null => {
+    const tokenMint = str(mint);
+    if (!tokenMint || quote <= 0 || tokens <= 0) return null;
+    return { signature, timestamp, mint: tokenMint, wallet, side, priceSol: quote / tokens, quoteSol: quote, tokenAmount: tokens };
+  };
+
+  // Helius Enhanced Transactions: events.swap uses lamports for native amounts,
+  // UI tokenAmount or rawTokenAmount { tokenAmount, decimals } for SPL tokens.
+  if (nativeIn.amount && tokenOutputs.length) {
+    const token = firstToken(...tokenOutputs);
+    const result = make(token.mint, "buy", nativeSol(nativeIn.amount), tokenUiAmount(token));
+    if (result) return result;
+  }
+  if (nativeOut.amount && tokenInputs.length) {
+    const token = firstToken(...tokenInputs);
+    const result = make(token.mint, "sell", nativeSol(nativeOut.amount), tokenUiAmount(token));
+    if (result) return result;
+  }
+
+  // Helius parsed swap data (when available in the payload).
   const inputMint = str(first(pd.input_mint, pd.inputMint));
   const outputMint = str(first(pd.output_mint, pd.outputMint));
   const inputRaw = first(pd.in_amount, pd.inputAmount);
@@ -61,36 +105,37 @@ function extractSwap(line: Obj): Swap | null {
     if (QUOTE_MINTS.has(inputMint) && !QUOTE_MINTS.has(outputMint)) {
       const quote = humanAmount(inputRaw, first(pd.in_decimals, pd.input_decimals), true);
       const tokens = humanAmount(outputRaw, first(pd.out_decimals, pd.output_decimals), false);
-      if (quote > 0 && tokens > 0) return { signature, timestamp, mint: outputMint, wallet, side: "buy", priceSol: quote / tokens, quoteSol: quote, tokenAmount: tokens };
+      const result = make(outputMint, "buy", quote, tokens);
+      if (result) return result;
     }
     if (QUOTE_MINTS.has(outputMint) && !QUOTE_MINTS.has(inputMint)) {
       const tokens = humanAmount(inputRaw, first(pd.in_decimals, pd.input_decimals), false);
       const quote = humanAmount(outputRaw, first(pd.out_decimals, pd.output_decimals), true);
-      if (quote > 0 && tokens > 0) return { signature, timestamp, mint: inputMint, wallet, side: "sell", priceSol: quote / tokens, quoteSol: quote, tokenAmount: tokens };
+      const result = make(inputMint, "sell", quote, tokens);
+      if (result) return result;
     }
   }
 
-  // Fallback to Helius Enhanced Transaction swap event shape.
-  const swap = obj(obj(line.events).swap);
-  const tokenInputs = Array.isArray(swap.tokenInputs) ? swap.tokenInputs : [];
-  const tokenOutputs = Array.isArray(swap.tokenOutputs) ? swap.tokenOutputs : [];
-  const nativeIn = obj(swap.nativeInput);
-  const nativeOut = obj(swap.nativeOutput);
-  if (nativeIn.amount && tokenOutputs.length) {
-    const token = obj(tokenOutputs[0]);
-    const quote = humanAmount(nativeIn.amount, 9, true);
-    const tokens = humanAmount(token.tokenAmount, token.decimals, false);
-    if (quote > 0 && tokens > 0 && str(token.mint)) return { signature, timestamp, mint: str(token.mint), wallet, side: "buy", priceSol: quote / tokens, quoteSol: quote, tokenAmount: tokens };
+  // Last-resort transfer reconstruction: require a native SOL transfer and an SPL
+  // transfer involving the fee payer. Do not infer a price from unrelated transfers.
+  const tokenTransfers = Array.isArray(parsed.tokenTransfers ?? line.tokenTransfers)
+    ? (parsed.tokenTransfers ?? line.tokenTransfers).map(obj) : [];
+  const nativeTransfers = Array.isArray(parsed.nativeTransfers ?? line.nativeTransfers)
+    ? (parsed.nativeTransfers ?? line.nativeTransfers).map(obj) : [];
+  const incomingToken = tokenTransfers.find((t: Obj) => str(t.toUserAccount) === wallet && str(t.mint));
+  const outgoingToken = tokenTransfers.find((t: Obj) => str(t.fromUserAccount) === wallet && str(t.mint));
+  const outgoingSol = nativeTransfers.filter((t: Obj) => str(t.fromUserAccount) === wallet).reduce((sum: number, t: Obj) => sum + nativeSol(t.amount), 0);
+  const incomingSol = nativeTransfers.filter((t: Obj) => str(t.toUserAccount) === wallet).reduce((sum: number, t: Obj) => sum + nativeSol(t.amount), 0);
+  if (incomingToken && outgoingSol > 0) {
+    const result = make(incomingToken.mint, "buy", outgoingSol, n(incomingToken.tokenAmount));
+    if (result) return result;
   }
-  if (nativeOut.amount && tokenInputs.length) {
-    const token = obj(tokenInputs[0]);
-    const quote = humanAmount(nativeOut.amount, 9, true);
-    const tokens = humanAmount(token.tokenAmount, token.decimals, false);
-    if (quote > 0 && tokens > 0 && str(token.mint)) return { signature, timestamp, mint: str(token.mint), wallet, side: "sell", priceSol: quote / tokens, quoteSol: quote, tokenAmount: tokens };
+  if (outgoingToken && incomingSol > 0) {
+    const result = make(outgoingToken.mint, "sell", incomingSol, n(outgoingToken.tokenAmount));
+    if (result) return result;
   }
   return null;
 }
-
 function flowPass(rows: Swap[], now: number): { pass: boolean; uniqueBuyers: number; reasons: string[] } {
   const reasons: string[] = [];
   const allBuyers = new Set<string>();
