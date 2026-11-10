@@ -7,6 +7,7 @@ export type MarketGuardConfig = {
   maxWindowGapMs: number;
   maxCreatorSellSupplyPct60s: number;
   maxCreatorLinkedSellSupplyPct60s: number;
+  maxRelatedWalletSellSupplyPct60s: number;
   maxRelatedWalletBuyShare30s: number;
   maxRelatedWalletHoldingsSupplyPct: number;
   minClusterConfidence: number;
@@ -22,6 +23,7 @@ export const DEFAULT_MARKET_GUARD_CONFIG: MarketGuardConfig = {
   maxWindowGapMs: 250,
   maxCreatorSellSupplyPct60s: 0.05,
   maxCreatorLinkedSellSupplyPct60s: 0.25,
+  maxRelatedWalletSellSupplyPct60s: 0.25,
   maxRelatedWalletBuyShare30s: 35,
   maxRelatedWalletHoldingsSupplyPct: 20,
   minClusterConfidence: 0.7,
@@ -51,7 +53,7 @@ export function evaluateCreatorAndClusterRisk(
     watch.push("creator_and_cluster_evidence_stale");
   const values = [
     risk.creatorSellSupplyPct60s, risk.creatorLinkedSellSupplyPct60s,
-    risk.relatedWalletBuyShare30s, risk.relatedWalletHoldingsSupplyPct, risk.clusterConfidence
+    risk.relatedWalletSellSupplyPct60s, risk.relatedWalletBuyShare30s, risk.relatedWalletHoldingsSupplyPct, risk.clusterConfidence
   ];
   if (values.some(v => !Number.isFinite(v) || v < 0 || v > 100) ||
       risk.clusterConfidence < 0 || risk.clusterConfidence > 1) {
@@ -62,6 +64,8 @@ export function evaluateCreatorAndClusterRisk(
     reject.push("creator_wallet_sold_tokens_recently");
   if (risk.creatorLinkedSellSupplyPct60s > config.maxCreatorLinkedSellSupplyPct60s)
     reject.push("creator_linked_wallets_sold_tokens_recently");
+  if (risk.relatedWalletSellSupplyPct60s > config.maxRelatedWalletSellSupplyPct60s)
+    reject.push("related_wallet_cluster_sold_tokens_recently");
 
   const highConfidence = risk.clusterConfidence >= config.minClusterConfidence;
   if (highConfidence && risk.relatedWalletBuyShare30s > config.maxRelatedWalletBuyShare30s)
