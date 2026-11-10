@@ -203,8 +203,6 @@ async function main() {
       });
     }
   }
-
-    }
     console.log(JSON.stringify({ stage: "coin-processing-batch-complete", batch: coinBatchCount, processedCoins: Math.min(offset + coinBatch.length, coinEntries.length), totalCoins: coinEntries.length }));
   }
 
