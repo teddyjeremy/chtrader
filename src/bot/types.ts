@@ -16,7 +16,7 @@ export type HolderDistribution = EvidenceMeta & {
   excludedAccountCount: number;
 };
 export type BundleAssessment = EvidenceMeta & {
-  confidence: number; coordinatedWalletCount: number; acquiredSupplyPct: number;
+  confidence: number; coordinatedWalletCount: number; coordinatedWallets: string[]; acquiredSupplyPct: number;
   currentHoldingsSupplyPct: number; creatorLinkedWalletCount: number;
   sameTransactionWalletCount: number; commonFunderWalletCount: number;
   sameSlotOnly: boolean; signals: string[];
