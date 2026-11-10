@@ -11,7 +11,7 @@ const snapshot = (timestampMs: number): MarketSnapshot => ({
   liquiditySol:12,estimatedEntryImpactPct:0.5,estimatedExitImpactPct:0.5,estimatedRoundTripFeePct:3,
   estimatedNetworkCostSol:0.00001,exitRouteAvailable:true,creatorDistributing:false,
   suspiciousClusterDominance:false,sameSlotRoundTripDominance:false,dataFresh:true,marketStateVerified:true,
-  creatorRisk:{status:"verified",observedAtMs:timestampMs,creatorWalletKnown:true,creatorSellSupplyPct60s:0,creatorLinkedSellSupplyPct60s:0,relatedWalletBuyShare30s:10,relatedWalletHoldingsSupplyPct:5,clusterConfidence:0.9},
+  creatorRisk:{status:"verified",observedAtMs:timestampMs,creatorWalletKnown:true,creatorSellSupplyPct60s:0,creatorLinkedSellSupplyPct60s:0,relatedWalletSellSupplyPct60s:0,relatedWalletBuyShare30s:10,relatedWalletHoldingsSupplyPct:5,clusterConfidence:0.9},
   flowPersistence:{status:"verified",observedAtMs:timestampMs,windows:[
     {startMs:timestampMs-4000,endMs:timestampMs-2000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","c"]},
     {startMs:timestampMs-3000,endMs:timestampMs-1000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","d"]},
