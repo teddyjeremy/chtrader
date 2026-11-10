@@ -102,17 +102,17 @@ The entry evaluator now uses strategy version `pump-curve-entry-v2-persistent-ri
 - Creator identity, sell attribution and cluster evidence must be verified and no older than 15 seconds. Unknown attribution means WATCH.
 
 ### Persistent buying pressure
-- Require three consecutive, completed, non-overlapping 2-second windows (6 seconds total).
+- Require three consecutive, completed 2-second rolling windows sampled 1 second apart (4 seconds of market history). This preserves the original 0–5 second launch-entry objective better than waiting for six non-overlapping seconds.
 - Each window independently requires buy quote > 3x sell quote, at least 3 unique buyers, sellers <= half the buyers, and largest buyer <=72% of buy quote.
 - Require at least 5 distinct buyer wallets across the three windows.
-- Windows must be contiguous within 250ms and the flow evidence must be fresh. Missing, stale, malformed or failed windows mean WATCH.
+- Each rolling window must be sampled exactly 1 second after the previous window (within 250ms), and the flow evidence must be fresh. Missing, stale, malformed or failed windows mean WATCH.
 - This is stricter than the original single 2-second trigger and will reduce trade frequency.
 
 ### Token taxes and quote-asset normalization
 - Require verified buy and sell token transfer-tax estimates, plus quote-asset mint, symbol, decimals, transfer tax and a fresh SOL conversion rate.
 - Reject if either token transfer-tax side exceeds 2%.
 - Calculate effective round-trip cost multiplicatively from venue/impact costs, token buy tax, token sell tax and quote-asset transfer tax on both quote movements. Reject above 4%.
-- The market-data producer must normalize `priceSol`, `liquiditySol`, quote volumes and paper notional into SOL using the verified quote conversion. A stable or other quote asset must not be assumed to equal USD or SOL.
+- The market-data producer must normalize `priceSol`, `liquiditySol`, quote volumes and paper notional into SOL using the verified quote conversion. The rolling-window builder and creator-risk builder are implemented as pure helpers; the runtime data ingestion still needs to call them and populate the snapshot fields. A stable or other quote asset must not be assumed to equal USD or SOL.
 - Tax metadata must reflect the active token program/extensions and current epoch where applicable. Unknown dynamic transfer fees mean WATCH, not a zero-tax assumption.
 
 ### Paper execution
