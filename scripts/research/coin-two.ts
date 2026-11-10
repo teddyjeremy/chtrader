@@ -13,15 +13,30 @@ const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 const ENHANCED_MIN_INTERVAL_MS=900;
 let lastEnhancedRequestAt=0;
 
+let lastRpcRequestAt=0;
+// Pace RPC pagination calls as well; getSignaturesForAddress can be rate-limited independently.
+const RPC_MIN_INTERVAL_MS=250;
 async function rpc(method:string, params:unknown[]) {
-  for(let attempt=0;attempt<6;attempt++){
+  for(let attempt=0;attempt<10;attempt++){
+    const waitForSlot=Math.max(0,lastRpcRequestAt+RPC_MIN_INTERVAL_MS-Date.now());
+    if(waitForSlot>0) await sleep(waitForSlot);
+    lastRpcRequestAt=Date.now();
     const res=await fetch(RPC,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:"coin-two",method,params}),signal:AbortSignal.timeout(60000)});
-    const body=await res.json() as {result?:unknown;error?:{message?:string}};
-    if(res.ok && !body.error) return body.result;
-    if(res.status!==429 && res.status<500) throw new Error(`${method}: ${res.status} ${JSON.stringify(body).slice(0,500)}`);
-    await sleep(Math.min(30000,1000*2**attempt));
+    const raw=await res.text();
+    let body:any=raw;
+    try { body=raw?JSON.parse(raw):null; } catch { /* Helius can return plain-text 429 responses */ }
+    if(res.ok && !body?.error) return body?.result;
+    const detail=typeof body==="string"?body:JSON.stringify(body);
+    if(res.status!==429 && res.status<500) throw new Error(`${method}: ${res.status} ${detail.slice(0,500)}`);
+    const retryAfter=res.headers.get("retry-after");
+    let retryMs=0;
+    if(retryAfter){const seconds=Number(retryAfter);retryMs=Number.isFinite(seconds)?seconds*1000:Math.max(0,Date.parse(retryAfter)-Date.now());}
+    const backoff=Math.min(60000,2000*2**attempt);
+    const wait=Math.max(retryMs,backoff);
+    console.warn(JSON.stringify({phase:"rpc-retry",method,status:res.status,attempt:attempt+1,waitMs:wait}));
+    await sleep(wait);
   }
-  throw new Error(`${method}: retries exhausted`);
+  throw new Error(`${method}: retries exhausted after rate-limit/server backoff`);
 }
 async function enhanced(signatures:string[]) {
   for(let attempt=0;attempt<8;attempt++){
