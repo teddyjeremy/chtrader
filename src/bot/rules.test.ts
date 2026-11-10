@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { evaluateEntry } from "./rules.js";
 import type { MarketSnapshot } from "./types.js";
 const valid = (): MarketSnapshot => ({
-  mint:"test-mint",timestampMs:1000000,phase:"bonding_curve",ageSeconds:15,priceSol:0.000001,
+  mint:"test-mint",timestampMs:10000,phase:"bonding_curve",ageSeconds:15,priceSol:0.000001,
   impulsePct:25,secondsSinceImpulse:2,pullbackFraction:0.20,higherLowConfirmed:true,
   pivotReclaimed:true,pivotReclaimPct:1.5,independentBuyers10s:4,buyVolumeSol10s:4,sellVolumeSol10s:1,
   buyQuoteVolume2s:4,sellQuoteVolume2s:1,uniqueBuyers2s:4,uniqueSellers2s:1,largestBuyerShare2s:0.5,
