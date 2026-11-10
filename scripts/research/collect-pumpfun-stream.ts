@@ -112,6 +112,7 @@ while (!pending.discoveryComplete && pages < MAX_PAGES) {
 // Batch files are durable; JSONL output is deduplicated by signature before append.
 let fetchedThisRun = 0;
 let missingThisRun = 0;
+const seenByFile = new Map<string, Set<string>>();
 for (let offset = pending.nextOffset; offset < pending.signatures.length; offset += BATCH_SIZE) {
   const batch = pending.signatures.slice(offset, offset + BATCH_SIZE);
   const batchName = `batch-${String(offset).padStart(10, "0")}-${batch[0].signature}-${batch[batch.length - 1].signature}.jsonl`;
