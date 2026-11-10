@@ -27,6 +27,9 @@ This is not every Solana DEX or launchpad, and does not by itself provide histor
 - `npm run research:october` — paginated October collection
 - `npm run research:derive` — swap, wallet activity and token activity CSV extraction
 - `npm run typecheck` — TypeScript validation
+- `npm run test:risk` — existing risk-analysis tests
+- `npm run test:entry` — strict entry-rule tests
+- `npm run test:paper-engine` — paper entry timing and execution-safety tests
 - `npm run test:adaptive-exit` — adaptive-exit unit tests
 
 ## Strategy and evidence
