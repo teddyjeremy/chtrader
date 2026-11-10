@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, writeFile, access } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { join } from "node:path";
 
@@ -31,7 +31,7 @@ function csv(v:any):string{const s=String(v??"");return /[",\n]/.test(s)?'"'+s.r
 function writeCsv(headers:string[],rows:any[][]):string{return [headers.join(","),...rows.map(r=>r.map(csv).join(","))].join("\n")+"\n"}
 async function readEvents(coin:string,mint:string):Promise<{events:Event[];quality:AnyObj}>{
  const file=join("data",coin,"enhanced-transactions.jsonl");let ordinal=0,malformed=0,failed=0,withMint=0,swapCandidates=0,unknownSide=0;const events:Event[]=[];
- try{await readdir(join("data",coin))}catch{return {events,quality:{missingRawFile:true}}}
+ try{await access(file)}catch{return {events,quality:{missingRawFile:true}}}
  const rl=createInterface({input:createReadStream(file),crlfDelay:Infinity});
  for await(const line of rl){if(!line.trim())continue;ordinal++;let tx:AnyObj;try{tx=obj(JSON.parse(line))}catch{malformed++;continue}
   if(tx.transactionError||tx.meta?.err){failed++;continue}
@@ -54,12 +54,13 @@ async function readEvents(coin:string,mint:string):Promise<{events:Event[];quali
 }
 function bucketRows(events:Event[],seconds:number):any[][]{
  if(!events.length)return [];
- const start=Math.floor(events[0].timestamp/seconds)*seconds,end=Math.floor(events[events.length-1].timestamp/seconds)*seconds;
+ const first=events[0]!,last=events[events.length-1]!;
+ const start=Math.floor(first.timestamp/seconds)*seconds,end=Math.floor(last.timestamp/seconds)*seconds;
  const rows:any[][]=[];let i=0;
  for(let t=start;t<=end;t+=seconds){const group:Event[]=[];while(i<events.length&&events[i].timestamp<t+seconds){if(events[i].timestamp>=t)group.push(events[i]);i++}
   const buys=group.filter(e=>e.side==="buy"),sells=group.filter(e=>e.side==="sell"),unknown=group.filter(e=>e.side==="unknown");
   const buySol=buys.reduce((s,e)=>s+e.quoteSol,0),sellSol=sells.reduce((s,e)=>s+e.quoteSol,0),prices=group.map(e=>e.priceSol).filter((v):v is number=>v!==null).sort((a,b)=>a-b);
-  const median=prices.length?(prices.length%2?prices[(prices.length-1)/2]:(prices[prices.length/2-1]+prices[prices.length/2])/2):"";
+  const median=prices.length?(prices.length%2?prices[(prices.length-1)/2]!:((prices[prices.length/2-1]??0)+(prices[prices.length/2]??0))/2):"";
   rows.push([t,new Date(t*1000).toISOString(),seconds,group.length,buys.length,sells.length,unknown.length,buySol,sellSol,buySol-sellSol,group.reduce((s,e)=>s+e.tokenAmount,0),new Set(group.map(e=>e.wallet).filter(Boolean)).size,median,prices.length]);
  }
  return rows;
