@@ -27,6 +27,7 @@ export type CreatorRiskAssessment = {
   creatorWalletKnown: boolean;
   creatorSellSupplyPct60s: number;
   creatorLinkedSellSupplyPct60s: number;
+  relatedWalletSellSupplyPct60s: number;
   relatedWalletBuyShare30s: number;
   relatedWalletHoldingsSupplyPct: number;
   clusterConfidence: number;
