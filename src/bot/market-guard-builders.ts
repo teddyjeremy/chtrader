@@ -73,8 +73,10 @@ export function buildCreatorRiskAssessment(input: {
   const from30s = input.swaps.filter(s => s.timestampMs > input.observedAtMs - 30_000 && s.timestampMs <= input.observedAtMs);
   const creatorSells = from60s.filter(s => s.side === "sell" && creator && s.wallet === creator);
   const linkedSells = from60s.filter(s => s.side === "sell" && s.creatorLinked && (!creator || s.wallet !== creator));
+  const relatedSells = from60s.filter(s => s.side === "sell" && related.has(s.wallet));
   const creatorSold = creatorSells.reduce((n, s) => n + BigInt(s.tokenAmountRaw), 0n);
   const linkedSold = linkedSells.reduce((n, s) => n + BigInt(s.tokenAmountRaw), 0n);
+  const relatedSold = relatedSells.reduce((n, s) => n + BigInt(s.tokenAmountRaw), 0n);
   const buys = from30s.filter(s => s.side === "buy");
   const totalBuyQuote = buys.reduce((n, s) => n + s.quoteAmount, 0);
   const relatedBuyQuote = buys.filter(s => related.has(s.wallet) || s.relatedWallet)
@@ -90,6 +92,7 @@ export function buildCreatorRiskAssessment(input: {
     creatorWalletKnown: !!creator,
     creatorSellSupplyPct60s: supplyPct(creatorSold, supply),
     creatorLinkedSellSupplyPct60s: supplyPct(linkedSold, supply),
+    relatedWalletSellSupplyPct60s: supplyPct(relatedSold, supply),
     relatedWalletBuyShare30s: totalBuyQuote > 0 ? relatedBuyQuote / totalBuyQuote * 100 : 0,
     relatedWalletHoldingsSupplyPct: supplyPct(relatedHoldings, supply),
     clusterConfidence: Number.isFinite(input.relatedClusterConfidence)
