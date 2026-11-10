@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 const PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const API_KEY = process.env.HELIUS_API_KEY;
-const requestedPages = Number(process.env.MAX_PAGES ?? 1);
+const requestedPages = Number(process.env.MAX_PAGES ?? 10);
 if (!Number.isInteger(requestedPages) || requestedPages < 1 || requestedPages > 10) {
   throw new Error("MAX_PAGES must be an integer from 1 to 10");
 }
