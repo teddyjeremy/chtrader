@@ -27,7 +27,7 @@ test("requires >3x two-second buy quote, 3 buyers, sellers <= half and <=72% con
   const cases:Array<[(s:MarketSnapshot)=>void,string]>=[
     [(s)=>{s.buyQuoteVolume2s=3;},"2s_buy_quote_not_greater_than_3x_sell_quote"],
     [(s)=>{s.uniqueBuyers2s=2;},"fewer_than_3_unique_buyers_in_2s"],
-    [(s)=>{s.uniqueSellers2s=2;},"seller_wallet_count_above_half_of_buyers"],
+    [(s)=>{s.uniqueBuyers2s=3;s.uniqueSellers2s=2;},"seller_wallet_count_above_half_of_buyers"],
     [(s)=>{s.largestBuyerShare2s=0.73;},"largest_buyer_share_above_72pct"]
   ];
   for(const [mutate,reason] of cases){const s=valid();mutate(s);assert.ok(evaluateEntry(s).reasons.includes(reason));}
