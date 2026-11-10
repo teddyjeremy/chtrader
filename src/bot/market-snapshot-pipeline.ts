@@ -58,7 +58,7 @@ function validSwapHistory(swaps: MarketSwapEvent[], observedAtMs: number): boole
     typeof s.wallet === "string" && s.wallet.length > 0 &&
     (s.side === "buy" || s.side === "sell") &&
     Number.isSafeInteger(s.timestampMs) && s.timestampMs <= observedAtMs &&
-    typeof s.tokenAmountRaw === "string" && /^\\d+$/.test(s.tokenAmountRaw) &&
+    typeof s.tokenAmountRaw === "string" && /^\d+$/.test(s.tokenAmountRaw) &&
     Number.isFinite(s.quoteAmount) && s.quoteAmount >= 0
   );
 }
@@ -105,9 +105,9 @@ export function buildMarketSnapshot(input: MarketSnapshotPipelineInput): MarketS
     historyComplete: input.historyComplete && historyValid
   });
   const creatorEvidenceValid =
-    /^\\d+$/.test(input.supplyRaw) && BigInt(input.supplyRaw || "0") > 0n &&
+    /^\d+$/.test(input.supplyRaw) && BigInt(input.supplyRaw || "0") > 0n &&
     input.relatedWallets.every(wallet => typeof wallet === "string" && wallet.length > 0) &&
-    Object.values(input.currentHoldingsByWallet).every(amount => /^\\d+$/.test(amount)) &&
+    Object.values(input.currentHoldingsByWallet).every(amount => /^\d+$/.test(amount)) &&
     Number.isFinite(input.relatedClusterConfidence) &&
     (input.creatorWallet === null || (typeof input.creatorWallet === "string" && input.creatorWallet.length > 0));
   const creatorRisk = buildCreatorRiskAssessment({
