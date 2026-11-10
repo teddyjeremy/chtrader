@@ -9,7 +9,7 @@ const QUOTE_MINTS = new Set([
   "So11111111111111111111111111111111111111111"
 ]);
 const TRADE_USD = 1;
-const STARTING_EQUITY_USD = 10;
+const STARTING_EQUITY_USD = 8;
 const MAX_OPEN_POSITIONS = 3;
 // Conservative research assumptions, not a claim of the exact fee charged on every curve trade.
 const PLATFORM_FEE_PER_SIDE = 0.01;
