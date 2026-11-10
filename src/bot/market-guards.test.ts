@@ -4,7 +4,9 @@ import {
   calculateEffectiveRoundTripCostPct,
   evaluateCreatorAndClusterRisk,
   evaluatePersistentBuyingPressure,
-  evaluateTokenEconomics
+  evaluateTokenEconomics,
+  quotePriceToSol,
+  quoteUnitsToSol
 } from "./market-guards.js";
 import type { CreatorRiskAssessment, FlowPersistenceAssessment, TokenEconomicsAssessment } from "./types.js";
 
@@ -68,4 +70,12 @@ test("round-trip cost combines venue costs and independent transfer taxes multip
 test("does not accept a native quote asset with a false SOL conversion",()=>{
   const q=economics();q.quoteAsset.solPerUnit=0.5;
   assert.ok(evaluateTokenEconomics(q,3,10_000).watch.includes("quote_asset_identity_or_sol_conversion_unverified"));
+});
+
+test("normalizes non-SOL quote assets only through a verified conversion rate",()=>{
+  const quote={mint:"aapl-x-mint",symbol:"AAPLx",decimals:6,kind:"other" as const,solPerUnit:2,conversionVerified:true,transferTaxPct:0};
+  assert.equal(quoteUnitsToSol(3,quote),6);
+  assert.equal(quotePriceToSol(0.5,quote),1);
+  quote.conversionVerified=false;
+  assert.throws(()=>quoteUnitsToSol(3,quote),/verified quote-to-SOL rate/);
 });
