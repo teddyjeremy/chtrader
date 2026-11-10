@@ -96,7 +96,7 @@ The entry evaluator now uses strategy version `pump-curve-entry-v2-persistent-ri
 ### Creator and related-wallet distribution
 - Reject if the identified creator sells more than 0.05% of total supply in the preceding 60 seconds.
 - Reject if confidently attributed creator-linked wallets sell more than 0.25% of supply in the preceding 60 seconds.
-- Reject if the identified related-wallet cluster sells more than 0.25% of supply in the preceding 60 seconds.
+- Reject if a high-confidence related-wallet cluster sells more than 0.25% of supply in the preceding 60 seconds; low-confidence attribution produces WATCH.
 - Reject if a high-confidence related-wallet cluster (confidence >= 0.70) accounts for more than 35% of buy volume over 30 seconds or currently holds more than 20% of supply.
 - If cluster concentration is high but attribution confidence is below 0.70, WATCH for confirmation rather than automatically labeling wallets malicious.
 - Same-slot activity alone is not sufficient proof of coordination.
@@ -113,7 +113,7 @@ The entry evaluator now uses strategy version `pump-curve-entry-v2-persistent-ri
 - Require verified buy and sell token transfer-tax estimates, plus quote-asset mint, symbol, decimals, transfer tax and a fresh SOL conversion rate.
 - Reject if either token transfer-tax side exceeds 2%.
 - Calculate effective round-trip cost multiplicatively from venue/impact costs, token buy tax, token sell tax and quote-asset transfer tax on both quote movements. Reject above 4%.
-- The market-data producer must normalize `priceSol`, `liquiditySol`, quote volumes and paper notional into SOL using the verified quote conversion. The rolling-window builder and creator-risk builder are implemented as pure helpers; the runtime data ingestion still needs to call them and populate the snapshot fields. A stable or other quote asset must not be assumed to equal USD or SOL.
+- The market-data producer must normalize `priceSol`, `liquiditySol`, quote volumes and paper notional into SOL using the verified quote conversion. The rolling-window builder and creator-risk builder are implemented as pure helpers; `quoteUnitsToSol` and `quotePriceToSol` provide conversion helpers. The runtime data ingestion still needs to call them and populate the snapshot fields. A stable or other quote asset must not be assumed to equal USD or SOL.
 - Tax metadata must reflect the active token program/extensions and current epoch where applicable. Unknown dynamic transfer fees mean WATCH, not a zero-tax assumption.
 
 ### Paper execution
