@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-11-10T18:20:43.388Z",
+  "mode": "PAPER_ONLY",
+  "sourceFiles": [
+    "2026-11-10-0001.jsonl",
+    "2026-11-10.jsonl"
+  ],
+  "inputRecords": 2000,
+  "malformedRecords": 0,
+  "parsedSwapRecords": 0,
+  "parsedDataRecords": 0,
+  "swapEventRecords": 25,
+  "observedParsedDataKeys": [],
+  "distinctSwapRows": 0,
+  "tokensWithSwaps": 0,
+  "pullbackCandidates": 0,
+  "watchSignals": 0,
+  "paperTradesOpened": 0,
+  "shadowTradesClosed": 0,
+  "shadowWins": 0,
+  "shadowLosses": 0,
+  "shadowWinRatePct": 0,
+  "shadowRealizedPnlUsd": 0,
+  "shadowOpenPositions": 0,
+  "shadowUnrealizedPnlUsd": 0,
+  "shadowCashUsd": 8,
+  "tradeAmountUsd": 1,
+  "startingPaperEquityUsd": 8,
+  "maxSimultaneousPositions": 3,
+  "feeAssumptions": {
+    "assumedVenueFeePerSidePct": 1,
+    "slippagePerSidePct": 0.5,
+    "networkFeeUsdPerSide": 0.001,
+    "estimatedRoundTripCostUsdAtFlatPrice": 0.032,
+    "estimatedRoundTripCostPctOfOneDollar": 3.2,
+    "breakEvenGrossMovePctApprox": 3.25,
+    "exampleAtFlatPrice": {
+      "entryFeeUsd": 0.01,
+      "entrySlippageUsd": 0.005,
+      "entryNetworkUsd": 0.001,
+      "exitFeeUsd": 0.01,
+      "exitSlippageUsd": 0.005,
+      "exitNetworkUsd": 0.001,
+      "totalRoundTripCostUsd": 0.032
+    },
+    "note": "Approximation for research only. Actual venue/creator fees, priority fees, route impact and slippage vary by transaction."
+  },
+  "feedLimitations": "Prices and flow are reconstructed from parsed swap events, not true one-second bonding-curve snapshots. Shadow fills bypass creator, tax, reserve and exit-route checks and are research diagnostics only.",
+  "status": "No qualifying pullback candidates were found in the parsed swap feed.",
+  "outputs": [
+    "paper-signals.jsonl",
+    "paper-trades.jsonl",
+    "shadow-paper-trades.jsonl",
+    "paper-open-positions.json",
+    "paper-trading-report.json"
+  ]
+}

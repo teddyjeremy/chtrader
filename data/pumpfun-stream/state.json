@@ -1,4 +1,5 @@
 {
-  "updatedAt": "2026-11-10T00:00:00.000Z",
-  "note": "Reset oversized historical signature backlog; resume with bounded incremental polling from the current Pump.fun head."
+  "updatedAt": "2026-11-10T18:20:42.827Z",
+  "note": "Reset oversized historical signature backlog; resume with bounded incremental polling from the current Pump.fun head.",
+  "lastSeenSignature": "V4caWbbX5pSf3JavDFbkVz53iMYw2sGAgNkFnem9P52V3zkp6BQpg8YEBq6TiccvVeeJiXAjBx3STZhe3upGjUz"
 }

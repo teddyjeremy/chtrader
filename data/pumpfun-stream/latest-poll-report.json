@@ -1,15 +1,17 @@
 {
-  "generatedAt": "2026-11-10T16:59:24.160Z",
+  "generatedAt": "2026-11-10T18:20:42.827Z",
   "source": "Helius Solana RPC + Enhanced Transactions",
   "program": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
-  "pagesScanned": 1,
-  "maxPages": 20,
+  "pagesScannedThisRun": 1,
+  "maxPages": 1,
   "checkpointBeforeRun": null,
-  "checkpointReached": true,
-  "newestSignatureStored": "4XxbAUtiBzwNmyhJU4qWZQ54XLeSJaXBwGuC8vL6N34YRyzGaFaZNFWS2cog4omC31cYLPuoyptTe9jXxbAwQpSc",
+  "newestSignatureStored": "V4caWbbX5pSf3JavDFbkVz53iMYw2sGAgNkFnem9P52V3zkp6BQpg8YEBq6TiccvVeeJiXAjBx3STZhe3upGjUz",
   "signaturesDiscovered": 1000,
-  "enhancedTransactionsFetched": 1000,
-  "enhancedTransactionsMissing": 0,
+  "enhancedTransactionsFetchedThisRun": 1000,
+  "enhancedTransactionsMissingThisRun": 0,
+  "discoveryComplete": true,
+  "pendingCursorBefore": null,
+  "pendingWorkRemaining": false,
   "completeness": "POLL_COMPLETE_TO_CHECKPOINT",
-  "note": "Raw Pump program transactions only. Not yet a validated mint lifecycle, bonding-curve reconstruction, strategy signal, or profitability result."
+  "note": "Raw Pump program transactions only; not yet a validated mint lifecycle, bonding-curve reconstruction, strategy signal, or profitability result."
 }
