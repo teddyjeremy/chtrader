@@ -152,14 +152,14 @@ for (let offset = pending.nextOffset; offset < pending.signatures.length; offset
     if (!known) {
       let existing = "";
       try { existing = await readFile(path, "utf8"); } catch { /* new output file */ }
-      known = new Set(existing.split("\\n").filter(Boolean).map(line => {
+      known = new Set(existing.split("\n").filter(Boolean).map(line => {
         try { return String(JSON.parse(line).signature ?? ""); } catch { return ""; }
       }));
       seenByFile.set(file, known);
     }
     const fresh = additions.filter(row => !known!.has(String(row.signature)));
     const lines = fresh.map(row => JSON.stringify(row.kind === "missing" ? row : row.tx));
-    if (lines.length) await appendFile(path, lines.join("\\n") + "\\n");
+    if (lines.length) await appendFile(path, lines.join("\n") + "\n");
     for (const row of fresh) known!.add(String(row.signature));
   }
   pending.nextOffset = Math.min(offset + BATCH_SIZE, pending.signatures.length);
