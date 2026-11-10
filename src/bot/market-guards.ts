@@ -160,7 +160,9 @@ export function evaluateTokenEconomics(
     watch.push("token_economics_evidence_stale");
   const q = economics.quoteAsset;
   if (!q.mint || !q.symbol || !Number.isInteger(q.decimals) || q.decimals < 0 ||
+      !["native","stable","other"].includes(q.kind) ||
       !Number.isFinite(q.solPerUnit) || q.solPerUnit <= 0 || !q.conversionVerified ||
+      (q.kind === "native" && (Math.abs(q.solPerUnit - 1) > 0.000001 || !["SOL","WSOL"].includes(q.symbol))) ||
       !Number.isFinite(q.transferTaxPct) || q.transferTaxPct < 0 || q.transferTaxPct >= 100) {
     watch.push("quote_asset_identity_or_sol_conversion_unverified");
   }
