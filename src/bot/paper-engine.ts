@@ -13,7 +13,7 @@ export type PaperConfig = {
 export const DEFAULT_PAPER_CONFIG: PaperConfig = {
   startingEquitySol: 0.05,
   maxPositionSol: 0.006,
-  maxOpenPositions: 1,
+  maxOpenPositions: 3,
   riskFraction: 0.01,
   estimatedExitCostFraction: 0.02,
   adaptiveExit: DEFAULT_ADAPTIVE_EXIT_CONFIG

@@ -18,14 +18,14 @@ test("locks +5% gross after a prior completed bar reaches +10%", () => {
   assert.equal(d.reason, "profit_floor");
   assert.equal(d.exitPrice, 105);
 });
-test("wide 40% trail gives a runner room before exiting", () => {
+test("wide 40% trail gives a strong runner room before exiting", () => {
   const m = new AdaptiveExitManager(100, 0);
-  assert.equal(m.onBar(bar(1_000, 100, 150, 130, 145)).action, "hold");
-  assert.equal(m.onBar(bar(2_000, 145, 146, 100, 110)).action, "hold");
-  const d = m.onBar(bar(3_000, 110, 112, 89, 95));
+  assert.equal(m.onBar(bar(1_000, 100, 500, 450, 490)).action, "hold");
+  assert.equal(m.onBar(bar(2_000, 490, 495, 320, 350)).action, "hold");
+  const d = m.onBar(bar(3_000, 350, 360, 299, 310));
   assert.equal(d.action, "sell");
   assert.equal(d.reason, "trailing_stop");
-  assert.equal(d.exitPrice, 90);
+  assert.equal(d.exitPrice, 300);
 });
 test("300 seconds is a ceiling, not an automatic 60-second exit", () => {
   const m = new AdaptiveExitManager(100, 0);

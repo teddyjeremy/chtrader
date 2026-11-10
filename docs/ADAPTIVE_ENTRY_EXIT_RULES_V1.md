@@ -16,7 +16,7 @@ Evaluate only while the token is still on the Pump bonding curve and market data
 6. Distinct seller count must be no more than half the buyer count.
 7. Largest buyer share of buy quote volume must be no more than 72%.
 8. Enter on the next completed 1-second close only if a fresh executable quote still passes slippage, impact, fee and exit-route checks.
-9. Never average down. Never enter after migration. One position per mint. The paper engine defaults to one open position; concurrency can only be increased after portfolio-level risk testing.
+9. Never average down. Never enter after migration. One position per mint. The paper engine has a maximum of 3 open positions; historical coin-by-coin replays use sequential positions.
 
 If no setup qualifies, do nothing. Do not loosen filters to force trades.
 
@@ -58,20 +58,21 @@ The selected candidate is a wide runner trail with progressive gross-profit floo
 - Live execution must use executable quotes, actual token/quote decimals, dynamic fee/tax estimates, transaction confirmation, partial-fill handling, retries and migration detection. A historical bar close is not a guaranteed fill.
 - On migration, submit an urgent curve exit before the curve closes; a post-migration state may already be too late to exit on the curve.
 - Log every signal and rejection reason, peak, active stop/floor, actual requested and filled size, slippage, fees, priority fee, network cost, exit reason and migration state.
+- The current paper engine consumes price snapshots as point bars; its stop fill is a simulation, not a live order.
 - Paper engine only. Do not enable live signing or mainnet order submission from this research result.
 
 ## 6. Six-coin evidence summary
 
 | Coin | Strict entries | Adaptive-exit observation |
 |---|---:|---|
-| 1 | 1 | −8.30% modeled net; the entry never reached +10% MFE and hit the hard stop. |
-| 2 | 0 | No strict trade. A separate exploratory Candidate B made +99.88% at the migration boundary with the wide trail; not a strict-rule result or verified fill. |
-| 3 | 2 | +3.92% and +101.60% modeled net with the cost-aware runner candidate. |
+| 1 | 1 | −8.30% modeled net; entry never reached +10% MFE and hit hard stop. |
+| 2 | 0 | No strict trade. Separate exploratory Candidate B made +99.88% at migration boundary with wide trail; not a strict result or verified fill. |
+| 3 | 2 | +3.92% and +101.60% modeled net with cost-aware runner candidate. |
 | 4 | 0 | Strict rules gave no trade. Relaxed 0.5% pivot sensitivity gave +157.15%; exploratory only. |
 | 5 | 5 | −9.21%, −9.79%, +0.34%, −9.21%, +159.65%; hard-stop losses remain an entry-quality problem. |
-| 6 | 1 | The cost-aware floor produced +1.36% modeled net versus −8.41% without the floor. |
+| 6 | 1 | Cost-aware floor produced +1.36% modeled net versus −8.41% without the floor. |
 
-This is a small, selected historical sample. Coin 2 and Coin 4 exploratory results must not be counted as strict entries. Coin 6 has only one accepted entry. No return is guaranteed.
+This is a small selected historical sample. Coin 2 and Coin 4 exploratory results must not be counted as strict entries. Coin 6 has only one accepted entry. No return is guaranteed.
 
 ## 7. Next research phase: coin selection and rejection
 
