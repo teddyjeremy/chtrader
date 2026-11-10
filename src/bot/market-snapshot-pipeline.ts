@@ -80,7 +80,8 @@ export function buildMarketSnapshot(input: MarketSnapshotPipelineInput): MarketS
   const quote = input.quoteAsset;
   const quoteValid = input.quoteAssetMetadataVerified && quoteFresh &&
     !!quote.mint && !!quote.symbol &&
-    Number.isInteger(quote.decimals) && quote.decimals >= 0 &&
+    Number.isInteger(quote.decimals) && quote.decimals >= 0 && quote.decimals <= 18 &&
+    ["native", "stable", "other"].includes(quote.kind) &&
     Number.isFinite(quote.solPerUnit) && quote.solPerUnit > 0 &&
     quote.conversionVerified &&
     Number.isFinite(quote.transferTaxPct) && quote.transferTaxPct >= 0 && quote.transferTaxPct < 100 &&
@@ -103,16 +104,22 @@ export function buildMarketSnapshot(input: MarketSnapshotPipelineInput): MarketS
     observedAtMs,
     historyComplete: input.historyComplete && historyValid
   });
+  const creatorEvidenceValid =
+    /^\\d+$/.test(input.supplyRaw) && BigInt(input.supplyRaw || "0") > 0n &&
+    input.relatedWallets.every(wallet => typeof wallet === "string" && wallet.length > 0) &&
+    Object.values(input.currentHoldingsByWallet).every(amount => /^\\d+$/.test(amount)) &&
+    Number.isFinite(input.relatedClusterConfidence) &&
+    (input.creatorWallet === null || (typeof input.creatorWallet === "string" && input.creatorWallet.length > 0));
   const creatorRisk = buildCreatorRiskAssessment({
-    swaps,
-    creatorWallet: input.creatorWallet,
-    relatedWallets: input.relatedWallets,
-    relatedClusterConfidence: input.relatedClusterConfidence,
-    currentHoldingsByWallet: input.currentHoldingsByWallet,
-    supplyRaw: input.supplyRaw,
+    swaps: creatorEvidenceValid ? swaps : [],
+    creatorWallet: creatorEvidenceValid ? input.creatorWallet : null,
+    relatedWallets: creatorEvidenceValid ? input.relatedWallets : [],
+    relatedClusterConfidence: creatorEvidenceValid ? input.relatedClusterConfidence : 0,
+    currentHoldingsByWallet: creatorEvidenceValid ? input.currentHoldingsByWallet : {},
+    supplyRaw: creatorEvidenceValid ? input.supplyRaw : "1",
     observedAtMs,
-    historyComplete: input.historyComplete && historyValid,
-    holdingsComplete: input.holdingsComplete
+    historyComplete: input.historyComplete && historyValid && creatorEvidenceValid,
+    holdingsComplete: input.holdingsComplete && creatorEvidenceValid
   });
 
   const taxValuesValid = [input.buyTransferTaxPct, input.sellTransferTaxPct]
