@@ -79,3 +79,8 @@ test("normalizes non-SOL quote assets only through a verified conversion rate",(
   quote.conversionVerified=false;
   assert.throws(()=>quoteUnitsToSol(3,quote),/verified quote-to-SOL rate/);
 });
+
+test("vetoes selling from a high-confidence related-wallet cluster",()=>{
+  const risk=creatorRisk();risk.relatedWalletSellSupplyPct60s=0.5;
+  assert.ok(evaluateCreatorAndClusterRisk(risk,false,false,10_000).reject.includes("related_wallet_cluster_sold_tokens_recently"));
+});
