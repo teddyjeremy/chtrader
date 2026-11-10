@@ -21,6 +21,36 @@ export type BundleAssessment = EvidenceMeta & {
   sameTransactionWalletCount: number; commonFunderWalletCount: number;
   sameSlotOnly: boolean; signals: string[];
 };
+export type CreatorRiskAssessment = {
+  status: AssessmentStatus;
+  observedAtMs: number;
+  creatorWalletKnown: boolean;
+  creatorSellSupplyPct60s: number;
+  creatorLinkedSellSupplyPct60s: number;
+  relatedWalletBuyShare30s: number;
+  relatedWalletHoldingsSupplyPct: number;
+  clusterConfidence: number;
+};
+export type FlowPersistenceWindow = {
+  startMs: number; endMs: number; buyQuote: number; sellQuote: number;
+  uniqueBuyers: number; uniqueSellers: number; largestBuyerShare: number;
+  buyerWallets: string[];
+};
+export type FlowPersistenceAssessment = {
+  status: AssessmentStatus; observedAtMs: number; windows: FlowPersistenceWindow[];
+};
+export type QuoteAssetMetadata = {
+  mint: string; symbol: string; decimals: number;
+  kind: "native" | "stable" | "other";
+  solPerUnit: number;
+  conversionVerified: boolean;
+  transferTaxPct: number;
+};
+export type TokenEconomicsAssessment = {
+  status: AssessmentStatus; observedAtMs: number;
+  buyTransferTaxPct: number; sellTransferTaxPct: number;
+  quoteAsset: QuoteAssetMetadata;
+};
 export type RiskAssessment = {
   status: AssessmentStatus; observedAtMs: number; liquidity: LiquidityAssessment;
   holders: HolderDistribution; bundles: BundleAssessment; mintAuthorityRevoked: boolean | null;
@@ -42,6 +72,12 @@ export type MarketSnapshot = {
   exitRouteAvailable: boolean; creatorDistributing: boolean;
   suspiciousClusterDominance: boolean; sameSlotRoundTripDominance: boolean;
   dataFresh: boolean; marketStateVerified: boolean; riskAssessment?: RiskAssessment;
+  /** Verified creator/related-wallet attribution; absent or partial evidence forces WATCH. */
+  creatorRisk?: CreatorRiskAssessment;
+  /** Consecutive completed, non-overlapping 2-second windows. */
+  flowPersistence?: FlowPersistenceAssessment;
+  /** Current transfer-tax and quote-asset conversion metadata. */
+  tokenEconomics?: TokenEconomicsAssessment;
 };
 export type Decision = {
   mint: string; action: DecisionAction; score: number; reasons: string[];
