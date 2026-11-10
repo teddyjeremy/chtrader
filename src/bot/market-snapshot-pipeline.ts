@@ -44,7 +44,7 @@ export type MarketSnapshotPipelineInput = {
 const MAX_EVIDENCE_AGE_MS = 15_000;
 
 function fresh(observedAtMs: number, evidenceAtMs: number): boolean {
-  return Number.isFinite(evidenceAtMs) &&
+  return Number.isFinite(evidenceAtMs) && evidenceAtMs >= 0 &&
     evidenceAtMs <= observedAtMs &&
     observedAtMs - evidenceAtMs <= MAX_EVIDENCE_AGE_MS;
 }
