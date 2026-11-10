@@ -12,8 +12,8 @@ const valid = (): MarketSnapshot => ({
   suspiciousClusterDominance:false,sameSlotRoundTripDominance:false,dataFresh:true,marketStateVerified:true,
   creatorRisk:{status:"verified",observedAtMs:10000,creatorWalletKnown:true,creatorSellSupplyPct60s:0,creatorLinkedSellSupplyPct60s:0,relatedWalletBuyShare30s:10,relatedWalletHoldingsSupplyPct:5,clusterConfidence:0.9},
   flowPersistence:{status:"verified",observedAtMs:10000,windows:[
-    {startMs:4000,endMs:6000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","c"]},
-    {startMs:6000,endMs:8000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","d"]},
+    {startMs:6000,endMs:8000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","c"]},
+    {startMs:7000,endMs:9000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","d"]},
     {startMs:8000,endMs:10000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","e","f"]}
   ]},
   tokenEconomics:{status:"verified",observedAtMs:10000,buyTransferTaxPct:0,sellTransferTaxPct:0,quoteAsset:{mint:"So11111111111111111111111111111111111111112",symbol:"SOL",decimals:9,kind:"native",solPerUnit:1,conversionVerified:true,transferTaxPct:0}}
