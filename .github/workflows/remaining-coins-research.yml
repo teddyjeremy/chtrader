@@ -8,6 +8,7 @@ on:
       - ".github/workflows/remaining-coins-research.yml"
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: remaining-coin-lifecycle-research
   cancel-in-progress: false
@@ -27,6 +28,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-coin-checkpoints-
       - run: npm install
+      - name: Restore completed Coin 1 dataset
+        uses: actions/download-artifact@v4
+        with:
+          name: coin-one-lifecycle-42781231100
+          run-id: 42781231100
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: data/coin-one
+      - name: Restore completed Coin 2 dataset
+        uses: actions/download-artifact@v4
+        with:
+          name: coin-two-lifecycle-42784189990
+          run-id: 42784189990
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: data/coin-two
       - name: Collect Coins 3 to 6 sequentially (resume from checkpoints)
         env:
           HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
@@ -54,6 +69,8 @@ jobs:
         with:
           name: remaining-coins-lifecycle-${{ github.run_id }}
           path: |
+            data/coin-one/
+            data/coin-two/
             data/coin-three/
             data/coin-four/
             data/coin-five/
