@@ -4,7 +4,7 @@ import {
   evaluatePersistentBuyingPressure,
   evaluateTokenEconomics
 } from "./market-guards.js";
-export const STRATEGY_VERSION = "pump-curve-entry-v1-adaptive-exit" as const;
+export const STRATEGY_VERSION = "pump-curve-entry-v2-persistent-risk-gated" as const;
 export type StrategyConfig = {
   minImpulsePct: number; minPullbackFraction: number; maxPullbackFraction: number;
   minPivotReclaimPct: number; minBuySellQuoteRatio2s: number; minUniqueBuyers2s: number;
@@ -20,7 +20,7 @@ export const DEFAULT_CONFIG: StrategyConfig = {
 function decision(s: MarketSnapshot, action: Decision["action"], reasons: string[], score = 0): Decision {
   return { mint:s.mint, action, score, reasons, strategyVersion:STRATEGY_VERSION, timestampMs:s.timestampMs, snapshot:s };
 }
-/** Strict Coin 3-derived trigger. Coin selection/rug filters are a separate research phase. */
+/** Strict trigger plus creator/cluster, persistent-flow and token-economics pre-entry gates. */
 export function evaluateEntry(s: MarketSnapshot, config: StrategyConfig = DEFAULT_CONFIG): Decision {
   const hard: string[] = [], watch: string[] = [];
   if (s.phase !== "bonding_curve") hard.push("not_on_pump_bonding_curve");
