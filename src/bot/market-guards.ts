@@ -185,3 +185,21 @@ export function evaluateTokenEconomics(
     reject.push("effective_round_trip_cost_including_transfer_taxes_too_high");
   return { reject, watch, effectiveRoundTripCostPct };
 }
+
+
+/** Convert a quote-denominated amount into SOL using a fresh verified oracle rate. */
+export function quoteUnitsToSol(amountQuote: number, quoteAsset: TokenEconomicsAssessment["quoteAsset"]): number {
+  if (!Number.isFinite(amountQuote) || amountQuote < 0 ||
+      !quoteAsset.conversionVerified || !Number.isFinite(quoteAsset.solPerUnit) ||
+      quoteAsset.solPerUnit <= 0)
+    throw new Error("quote amount cannot be normalized without a verified quote-to-SOL rate");
+  if (quoteAsset.kind === "native" &&
+      (Math.abs(quoteAsset.solPerUnit - 1) > 0.000001 || !["SOL","WSOL"].includes(quoteAsset.symbol)))
+    throw new Error("native quote asset must normalize one-to-one into SOL");
+  return amountQuote * quoteAsset.solPerUnit;
+}
+
+/** Convert a token price expressed in quote units per token into SOL per token. */
+export function quotePriceToSol(priceQuote: number, quoteAsset: TokenEconomicsAssessment["quoteAsset"]): number {
+  return quoteUnitsToSol(priceQuote, quoteAsset);
+}
