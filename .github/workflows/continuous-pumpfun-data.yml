@@ -60,6 +60,7 @@ jobs:
             echo "No new data to commit."
           else
             git commit -m "data: append Pump.fun stream $(date -u +%Y-%m-%dT%H:%MZ)"
+            git pull --rebase origin main
             git push origin HEAD:main
           fi
 
