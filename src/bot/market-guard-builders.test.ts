@@ -25,6 +25,7 @@ test("measures creator sells and related-wallet concentration using supply units
   const swaps:MarketSwapEvent[]=[
     {wallet:"creator",side:"sell",timestampMs:9_500,tokenAmountRaw:"100",quoteAmount:1},
     {wallet:"linked",side:"sell",timestampMs:9_600,tokenAmountRaw:"200",quoteAmount:2,creatorLinked:true},
+    {wallet:"cluster-a",side:"sell",timestampMs:9_650,tokenAmountRaw:"300",quoteAmount:2},
     {wallet:"cluster-a",side:"buy",timestampMs:9_700,tokenAmountRaw:"100",quoteAmount:6},
     {wallet:"other",side:"buy",timestampMs:9_800,tokenAmountRaw:"100",quoteAmount:4}
   ];
@@ -36,6 +37,7 @@ test("measures creator sells and related-wallet concentration using supply units
   assert.equal(result.status,"verified");
   assert.equal(result.creatorSellSupplyPct60s,1);
   assert.equal(result.creatorLinkedSellSupplyPct60s,2);
+  assert.equal(result.relatedWalletSellSupplyPct60s,3);
   assert.equal(result.relatedWalletBuyShare30s,60);
   assert.equal(result.relatedWalletHoldingsSupplyPct,5);
 });
