@@ -3,8 +3,13 @@ import { join } from "node:path";
 
 const PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const API_KEY = process.env.HELIUS_API_KEY;
-const MAX_PAGES = Math.max(1, Number(process.env.MAX_PAGES ?? 1));
-const BATCH_SIZE = 2;
+const requestedPages = Number(process.env.MAX_PAGES ?? 1);
+if (!Number.isInteger(requestedPages) || requestedPages < 1 || requestedPages > 10) {
+  throw new Error("MAX_PAGES must be an integer from 1 to 10");
+}
+const MAX_PAGES = requestedPages;
+// Helius Enhanced Transactions accepts batches; use 100 to avoid hundreds of slow requests.
+const BATCH_SIZE = 100;
 if (!API_KEY) throw new Error("HELIUS_API_KEY is required");
 
 const root = join("data", "pumpfun-stream");
@@ -71,7 +76,8 @@ async function enhanced(signatures: string[]): Promise<any[]> {
     const raw = await response.text();
     let body: any;
     try { body = JSON.parse(raw); } catch { body = raw; }
-    if (response.ok) return Array.isArray(body) ? body : [];
+    if (response.ok && Array.isArray(body)) return body;
+    if (response.ok) throw new Error("Helius Enhanced API returned an unexpected payload: " + JSON.stringify(body).slice(0, 500));
     const detail = typeof body === "string" ? body : JSON.stringify(body);
     if (response.status !== 429 && response.status < 500) throw new Error("Helius Enhanced API: " + detail.slice(0, 500));
     if (/credit|monthly quota|out of quota/i.test(detail)) throw new Error("Helius Enhanced API quota exhausted: " + detail.slice(0, 500));
@@ -148,10 +154,13 @@ for (let offset = pending.nextOffset; offset < pending.signatures.length; offset
   }
   for (const [prefix, additions] of grouped) {
     let known = seenByFile.get(prefix);
-    const matching = (await readdir(root)).filter(name => name.startsWith(prefix + "-") && name.endsWith(".jsonl")).sort();
+    const allNames = await readdir(root);
+    const unshardedName = prefix + ".jsonl";
+    const hasUnsharded = allNames.includes(unshardedName);
+    const shardNames = allNames.filter(name => name.startsWith(prefix + "-") && name.endsWith(".jsonl")).sort();
     if (!known) {
       known = new Set<string>();
-      for (const name of matching) {
+      for (const name of [...(hasUnsharded ? [unshardedName] : []), ...shardNames]) {
         const existing = await readFile(join(root, name), "utf8");
         for (const line of existing.split("\n").filter(Boolean)) {
           try { known.add(String(JSON.parse(line).signature ?? "")); } catch { /* malformed historical row */ }
@@ -161,7 +170,7 @@ for (let offset = pending.nextOffset; offset < pending.signatures.length; offset
     }
     const fresh = additions.filter(row => !known!.has(String(row.signature)));
     const maxShardBytes = 20 * 1024 * 1024;
-    let shard = matching.length ? matching[matching.length - 1] : "";
+    let shard = shardNames.length ? shardNames[shardNames.length - 1] : "";
     let shardPath = shard ? join(root, shard) : "";
     let shardBytes = shardPath ? (await stat(shardPath)).size : maxShardBytes;
     let shardNumber = shard ? Number(shard.match(/-(\d{4})\.jsonl$/)?.[1] ?? 0) : 0;
