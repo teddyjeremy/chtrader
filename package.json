@@ -11,7 +11,9 @@
     "test:market-guards": "tsx --test src/bot/market-guards.test.ts src/bot/market-guard-builders.test.ts",
     "test:entry": "tsx --test src/bot/rules.test.ts",
     "test:paper-engine": "tsx --test src/bot/paper-engine.test.ts",
-    "test:adaptive-exit": "tsx --test src/bot/adaptive-exit-manager.test.ts"
+    "test:adaptive-exit": "tsx --test src/bot/adaptive-exit-manager.test.ts",
+    "test:market-pipeline": "tsx --test src/bot/market-snapshot-pipeline.test.ts",
+    "test:paper-runtime": "tsx --test src/bot/paper-runtime.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
