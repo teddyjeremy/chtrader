@@ -66,17 +66,17 @@ export class AdaptiveExitManager {
     const floorPrice = floorGain > 0 ? this.entryPrice * (1 + floorGain) : 0;
     if (migrating) return this.close("migration", bar.close, priorPeak, floorPrice);
     const hardStop = this.entryPrice * (1 - this.config.hardStopPct);
-    if (bar.low <= hardStop) {
-      return this.close("hard_stop", bar.open < hardStop ? bar.open : hardStop, priorPeak, floorPrice);
-    }
     let activeStop = hardStop;
+    let stopReason: ExitReason = "hard_stop";
     if (peakGain >= this.config.trailActivationPct) {
       const wideTrail = priorPeak * (1 - this.config.trailGapPct);
-      activeStop = Math.max(wideTrail, floorPrice);
-      if (bar.low <= activeStop) {
-        const fill = bar.open < activeStop ? bar.open : activeStop;
-        return this.close(floorPrice > 0 && floorPrice >= wideTrail ? "profit_floor" : "trailing_stop", fill, priorPeak, floorPrice);
-      }
+      activeStop = Math.max(hardStop, wideTrail, floorPrice);
+      if (floorPrice >= wideTrail && floorPrice >= hardStop) stopReason = "profit_floor";
+      else if (wideTrail >= hardStop) stopReason = "trailing_stop";
+    }
+    if (bar.low <= activeStop) {
+      const fill = bar.open < activeStop ? bar.open : activeStop;
+      return this.close(stopReason, fill, priorPeak, floorPrice);
     }
     if (ageSeconds >= this.config.maxHoldSeconds) {
       return this.close("max_hold", bar.close, priorPeak, floorPrice);

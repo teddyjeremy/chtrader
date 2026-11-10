@@ -10,10 +10,10 @@ test("keeps the initial 5% hard stop active before trail activation", () => {
   assert.equal(d.reason, "hard_stop");
   assert.equal(d.exitPrice, 95);
 });
-test("locks +5% gross after a prior completed bar reaches +10%", () => {
+test("profit floor takes priority over the original hard stop after activation", () => {
   const m = new AdaptiveExitManager(100, 0);
   assert.equal(m.onBar(bar(1_000, 100, 111, 101, 108)).action, "hold");
-  const d = m.onBar(bar(2_000, 108, 109, 104, 106));
+  const d = m.onBar(bar(2_000, 108, 109, 90, 94));
   assert.equal(d.action, "sell");
   assert.equal(d.reason, "profit_floor");
   assert.equal(d.exitPrice, 105);
