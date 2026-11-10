@@ -1,6 +1,8 @@
 import type { ClosedPaperTrade, Decision, MarketSnapshot, PaperPosition } from "./types.js";
 import { AdaptiveExitManager, DEFAULT_ADAPTIVE_EXIT_CONFIG } from "./adaptive-exit-manager.js";
 import type { ExitConfig } from "./adaptive-exit-manager.js";
+import { evaluateEntry } from "./rules.js";
+import { evaluateTokenEconomics } from "./market-guards.js";
 
 export type PaperConfig = {
   startingEquitySol: number;
@@ -49,9 +51,14 @@ export class PaperEngine {
     if (!(s.priceSol > 0) || !s.dataFresh || !s.marketStateVerified ||
         !s.exitRouteAvailable || s.phase !== "bonding_curve" ||
         !Number.isFinite(s.estimatedRoundTripFeePct)) return false;
+    // Re-evaluate the completed entry bar: stale signal approval cannot bypass new vetoes.
+    if (evaluateEntry(s).action !== "buy") return false;
+    const economics = evaluateTokenEconomics(s.tokenEconomics, s.estimatedRoundTripFeePct, s.timestampMs);
+    if (economics.effectiveRoundTripCostPct === undefined || economics.reject.length || economics.watch.length) return false;
+    const roundTripCostPct = economics.effectiveRoundTripCostPct;
     const riskSol = this.equitySol * this.config.riskFraction;
-    const stopDistance = s.priceSol * this.config.adaptiveExit.hardStopPct;
-    const riskSizedNotional = stopDistance > 0 ? riskSol * s.priceSol / stopDistance : 0;
+    const totalStopRiskFraction = this.config.adaptiveExit.hardStopPct + roundTripCostPct / 100;
+    const riskSizedNotional = totalStopRiskFraction > 0 ? riskSol / totalStopRiskFraction : 0;
     const notionalSol = Math.min(this.config.maxPositionSol, riskSizedNotional, this.equitySol * 0.25);
     if (notionalSol <= 0 || notionalSol > this.equitySol) return false;
     const position: PaperPosition = {
@@ -59,7 +66,8 @@ export class PaperEngine {
       openedAtMs: s.timestampMs,
       stopPriceSol: s.priceSol * (1 - this.config.adaptiveExit.hardStopPct),
       highestPriceSol: s.priceSol,
-      entryCostSol: notionalSol * s.estimatedRoundTripFeePct / 200
+      entryCostSol: notionalSol * roundTripCostPct / 200,
+      roundTripCostPct
     };
     this.positions.set(s.mint, position);
     this.exitManagers.set(s.mint, new AdaptiveExitManager(s.priceSol, s.timestampMs, this.config.adaptiveExit));
@@ -88,7 +96,9 @@ export class PaperEngine {
         : Math.min(s.priceSol, decision.exitPrice ?? s.priceSol);
     }
     const gross = (exitPrice - p.entryPriceSol) * p.quantity;
-    const costs = p.notionalSol * this.config.estimatedExitCostFraction + p.entryCostSol + s.estimatedNetworkCostSol;
+    const exitEconomics = evaluateTokenEconomics(s.tokenEconomics, s.estimatedRoundTripFeePct, s.timestampMs);
+    const currentRoundTripCostPct = exitEconomics.effectiveRoundTripCostPct ?? p.roundTripCostPct;
+    const costs = p.notionalSol * currentRoundTripCostPct / 200 + p.entryCostSol + s.estimatedNetworkCostSol;
     const net = gross - costs;
     this.equitySol += net;
     this.positions.delete(s.mint);
