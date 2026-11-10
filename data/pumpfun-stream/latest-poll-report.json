@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T18:40:18.119Z",
+  "generatedAt": "2026-11-10T22:17:30.111Z",
   "source": "Helius Solana RPC + Enhanced Transactions",
   "program": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
   "pagesScannedThisRun": 10,
@@ -10,7 +10,7 @@
   "enhancedTransactionsFetchedThisRun": 10000,
   "enhancedTransactionsMissingThisRun": 0,
   "discoveryComplete": false,
-  "pendingCursorBefore": "4mcnkzd4kNdmHGtqdYTsyNstJcigEnWqHT7TFrzbEYneg9xrba9xP3owQLRz49WEmzedK4uC8MUuwBWMYeaWCcKW",
+  "pendingCursorBefore": "LAC8h3KAJKux2cNkdZdCRyVkNdVH4UUmttULrF3sxfSDdu3z3ieZtG6awBaRPRYmf8PoDXjEVmg2YkssHuPbSdh",
   "pendingWorkRemaining": true,
   "completeness": "HISTORICAL_CATCHUP_IN_PROGRESS",
   "note": "Raw Pump program transactions only; not yet a validated mint lifecycle, bonding-curve reconstruction, strategy signal, or profitability result."
