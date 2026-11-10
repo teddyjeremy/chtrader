@@ -4,7 +4,7 @@ import { buildCreatorRiskAssessment, buildFlowPersistenceAssessment } from "./ma
 import type { MarketSwapEvent } from "./market-guard-builders.js";
 
 const events: MarketSwapEvent[] = [];
-for (const [start, wallets] of [[4_000,["a","b","c"]],[6_000,["a","b","d"]],[8_000,["a","e","f"]]] as const) {
+for (const [start, wallets] of [[6_000,["a","b","c"]],[7_000,["a","b","d"]],[8_000,["a","e","f"]]] as const) {
   for (const wallet of wallets) events.push({
     wallet,side:"buy",timestampMs:start+100,tokenAmountRaw:"100",quoteAmount:1
   });
@@ -14,7 +14,7 @@ test("builds three consecutive completed two-second flow windows",()=>{
   const result=buildFlowPersistenceAssessment({swaps:events,observedAtMs:10_000,historyComplete:true});
   assert.equal(result.status,"verified");
   assert.equal(result.windows.length,3);
-  assert.deepEqual(result.windows.map(w=>[w.startMs,w.endMs]),[[4_000,6_000],[6_000,8_000],[8_000,10_000]]);
+  assert.deepEqual(result.windows.map(w=>[w.startMs,w.endMs]),[[6_000,8_000],[7_000,9_000],[8_000,10_000]]);
   assert.equal(new Set(result.windows.flatMap(w=>w.buyerWallets)).size,6);
 });
 test("marks incomplete swap history as partial rather than passing it as verified",()=>{
