@@ -117,7 +117,7 @@ function flowPass(rows: Swap[], now: number): { pass: boolean; uniqueBuyers: num
 
 async function main() {
   await mkdir(ROOT, { recursive: true });
-  const files = (await readdir(ROOT)).filter(f => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f)).sort();
+  const files = (await readdir(ROOT)).filter(f => /^\\d{4}-\\d{2}-\\d{2}(?:-\\d{4})?\\.jsonl$/.test(f)).sort();
   const swaps = new Map<string, Swap>();
   let inputRecords = 0, malformed = 0, parsedSwaps = 0, parsedDataRecords = 0, swapEventRecords = 0;
   const observedParsedDataKeys = new Set<string>();
