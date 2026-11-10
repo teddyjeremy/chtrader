@@ -3,6 +3,7 @@ import type { CreatorRiskAssessment, FlowPersistenceAssessment, TokenEconomicsAs
 export type MarketGuardConfig = {
   minPersistentWindows: number;
   windowDurationMs: number;
+  windowStrideMs: number;
   maxWindowGapMs: number;
   maxCreatorSellSupplyPct60s: number;
   maxCreatorLinkedSellSupplyPct60s: number;
@@ -17,6 +18,7 @@ export type MarketGuardConfig = {
 export const DEFAULT_MARKET_GUARD_CONFIG: MarketGuardConfig = {
   minPersistentWindows: 3,
   windowDurationMs: 2_000,
+  windowStrideMs: 1_000,
   maxWindowGapMs: 250,
   maxCreatorSellSupplyPct60s: 0.05,
   maxCreatorLinkedSellSupplyPct60s: 0.25,
@@ -105,7 +107,10 @@ export function evaluatePersistentBuyingPressure(
       valid = false;
       break;
     }
-    if (i > 0 && Math.abs(w.startMs - windows[i - 1]!.endMs) > config.maxWindowGapMs) {
+    if (i > 0 && (
+      Math.abs((w.startMs - windows[i - 1]!.startMs) - config.windowStrideMs) > config.maxWindowGapMs ||
+      Math.abs((w.endMs - windows[i - 1]!.endMs) - config.windowStrideMs) > config.maxWindowGapMs
+    )) {
       valid = false;
       break;
     }
