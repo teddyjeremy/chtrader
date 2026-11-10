@@ -15,8 +15,8 @@ const creatorRisk = (): CreatorRiskAssessment => ({
 });
 const flow = (): FlowPersistenceAssessment => ({
   status:"verified",observedAtMs:10_000,windows:[
-    {startMs:4_000,endMs:6_000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","c"]},
-    {startMs:6_000,endMs:8_000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","d"]},
+    {startMs:6_000,endMs:8_000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","c"]},
+    {startMs:7_000,endMs:9_000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","d"]},
     {startMs:8_000,endMs:10_000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","e","f"]}
   ]
 });
