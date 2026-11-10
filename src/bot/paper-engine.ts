@@ -87,7 +87,6 @@ export class PaperEngine {
       if (creatorGuard.reject.length) reason = "emergency_creator_or_related_wallet_distribution";
     }
     if (!reason) {
-    else {
       const decision = manager.onBar({
         timestampMs: s.timestampMs,
         open: s.priceSol, high: s.priceSol, low: s.priceSol, close: s.priceSol,
