@@ -12,7 +12,7 @@ import type { CreatorRiskAssessment, FlowPersistenceAssessment, TokenEconomicsAs
 
 const creatorRisk = (): CreatorRiskAssessment => ({
   status:"verified",observedAtMs:10_000,creatorWalletKnown:true,
-  creatorSellSupplyPct60s:0,creatorLinkedSellSupplyPct60s:0,
+  creatorSellSupplyPct60s:0,creatorLinkedSellSupplyPct60s:0,relatedWalletSellSupplyPct60s:0,
   relatedWalletBuyShare30s:10,relatedWalletHoldingsSupplyPct:5,clusterConfidence:0.9
 });
 const flow = (): FlowPersistenceAssessment => ({
