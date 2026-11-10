@@ -25,10 +25,11 @@ export function buildFlowPersistenceAssessment(input: {
   historyComplete: boolean;
 }): FlowPersistenceAssessment {
   const windowMs = 2_000;
-  const latestEnd = Math.floor(input.observedAtMs / windowMs) * windowMs;
+  const strideMs = 1_000;
+  const latestEnd = Math.floor(input.observedAtMs / strideMs) * strideMs;
   const windows: FlowPersistenceWindow[] = [];
   for (let i = 2; i >= 0; i--) {
-    const endMs = latestEnd - i * windowMs;
+    const endMs = latestEnd - i * strideMs;
     const startMs = endMs - windowMs;
     const events = input.swaps.filter(s => s.timestampMs >= startMs && s.timestampMs < endMs);
     const buys = events.filter(s => s.side === "buy");
