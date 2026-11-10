@@ -1,4 +1,5 @@
 name: Coin 2 lifecycle research
+# Retry-safe collector: RPC pagination is throttled in scripts/research/coin-two.ts
 on:
   workflow_dispatch:
   push:
