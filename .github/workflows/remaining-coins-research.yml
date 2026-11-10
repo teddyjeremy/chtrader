@@ -1,0 +1,59 @@
+name: Remaining coin lifecycle research
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/coin-one-lifecycle]
+    paths:
+      - "scripts/research/coin-lifecycle-resumable.ts"
+      - ".github/workflows/remaining-coins-research.yml"
+permissions:
+  contents: read
+concurrency:
+  group: remaining-coin-lifecycle-research
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/cache/restore@v4
+        with:
+          path: data/checkpoints
+          key: ${{ runner.os }}-coin-checkpoints-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-coin-checkpoints-
+      - run: npm install
+      - name: Collect Coins 3 to 6 sequentially (resume from checkpoints)
+        env:
+          HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
+        shell: bash
+        run: |
+          set +e
+          status=0
+          COIN_ID=coin-three MINT_ADDRESS=6r7D6ab6agnc5VcJxApia4HqbRikAeAEus2UYF9hpump npx tsx scripts/research/coin-lifecycle-resumable.ts || status=1
+          COIN_ID=coin-four MINT_ADDRESS=BYurrzk6JV3YaqwwVDAq7rvZC7mBGY1xCTE8PG5dpump npx tsx scripts/research/coin-lifecycle-resumable.ts || status=1
+          COIN_ID=coin-five MINT_ADDRESS=Cg1g9zBvydiuvCuqiLy5XrmR2LXyU54FGUHhzGVApump npx tsx scripts/research/coin-lifecycle-resumable.ts || status=1
+          COIN_ID=coin-six MINT_ADDRESS=2NFDhipSmrn3GaU7UK6jPvYxbveBUvNs6ec71r2ipump npx tsx scripts/research/coin-lifecycle-resumable.ts || status=1
+          exit "$status"
+      - name: Save resumable checkpoints
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/checkpoints
+          key: ${{ runner.os }}-coin-checkpoints-${{ github.run_id }}
+      - name: Upload collected coin datasets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remaining-coins-lifecycle-${{ github.run_id }}
+          path: |
+            data/coin-three/
+            data/coin-four/
+            data/coin-five/
+            data/coin-six/
+          if-no-files-found: warn
+          retention-days: 30
