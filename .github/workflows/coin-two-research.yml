@@ -1,0 +1,39 @@
+name: Coin 2 lifecycle research
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/coin-one-lifecycle
+    paths:
+      - "scripts/research/coin-two.ts"
+      - ".github/workflows/coin-two-research.yml"
+permissions:
+  contents: read
+concurrency:
+  group: coin-two-lifecycle-research
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Collect Coin 2 mint history and market snapshot
+        env:
+          HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
+          MINT_ADDRESS: "47DRRsVbezhpcnn2342krbtqYAwBXuo3HcHyfo4Upump"
+          OUTPUT_DIR: "coin-two"
+          MAX_SIGNATURES: "100000"
+        run: npx tsx scripts/research/coin-two.ts
+      - name: Upload Coin 2 lifecycle dataset
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coin-two-lifecycle-${{ github.run_id }}
+          path: data/coin-two/
+          if-no-files-found: warn
+          retention-days: 30
