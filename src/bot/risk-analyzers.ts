@@ -90,7 +90,7 @@ export function analyzeBundles(input: {
   return {
     ...meta(input.historyComplete?"verified":"partial",["helius","derived"],input.observedAtMs,
       input.historyComplete?[]:["transaction_history_window_incomplete"]),
-    confidence,coordinatedWalletCount:coordinated.size,
+    confidence,coordinatedWalletCount:coordinated.size,coordinatedWallets:[...coordinated].sort(),
     acquiredSupplyPct:pct(acquired,supply),currentHoldingsSupplyPct:pct(current,supply),
     creatorLinkedWalletCount:new Set(buys.filter(x=>x.creatorLinked).map(x=>x.wallet)).size,
     sameTransactionWalletCount:sameTxWallets,
