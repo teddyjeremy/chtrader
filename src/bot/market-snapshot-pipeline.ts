@@ -144,11 +144,13 @@ export function buildMarketSnapshot(input: MarketSnapshotPipelineInput): MarketS
     liquiditySol,
     buyVolumeSol10s,
     sellVolumeSol10s,
-    buyQuoteVolume2s: latestFlow?.buyQuote,
-    sellQuoteVolume2s: latestFlow?.sellQuote,
-    uniqueBuyers2s: latestFlow?.uniqueBuyers,
-    uniqueSellers2s: latestFlow?.uniqueSellers,
-    largestBuyerShare2s: latestFlow?.largestBuyerShare,
+    ...(latestFlow ? {
+      buyQuoteVolume2s: latestFlow.buyQuote,
+      sellQuoteVolume2s: latestFlow.sellQuote,
+      uniqueBuyers2s: latestFlow.uniqueBuyers,
+      uniqueSellers2s: latestFlow.uniqueSellers,
+      largestBuyerShare2s: latestFlow.largestBuyerShare
+    } : {}),
     dataFresh: marketDataFresh,
     marketStateVerified: snapshot.marketStateVerified && normalized,
     creatorRisk,
