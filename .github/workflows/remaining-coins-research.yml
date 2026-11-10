@@ -39,6 +39,9 @@ jobs:
           COIN_ID=coin-five MINT_ADDRESS=Cg1g9zBvydiuvCuqiLy5XrmR2LXyU54FGUHhzGVApump npx tsx scripts/research/coin-lifecycle-resumable.ts || status=1
           COIN_ID=coin-six MINT_ADDRESS=2NFDhipSmrn3GaU7UK6jPvYxbveBUvNs6ec71r2ipump npx tsx scripts/research/coin-lifecycle-resumable.ts || status=1
           exit "$status"
+      - name: Derive 5s, 15s, 30s and 60s lifecycle windows for all six coins
+        if: always()
+        run: npx tsx scripts/research/derive-micro-windows.ts
       - name: Save resumable checkpoints
         if: always()
         uses: actions/cache/save@v4
@@ -55,5 +58,6 @@ jobs:
             data/coin-four/
             data/coin-five/
             data/coin-six/
+            data/all-coins-micro-window-index.json
           if-no-files-found: warn
           retention-days: 30
