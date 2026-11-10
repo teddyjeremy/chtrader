@@ -28,6 +28,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-coin-checkpoints-
       - run: npm install
+      - name: Type-check micro-window analysis
+        run: npx tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --types node scripts/research/derive-micro-windows.ts
       - name: Restore completed Coin 1 dataset
         uses: actions/download-artifact@v4
         with:
