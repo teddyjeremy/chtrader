@@ -1,4 +1,4 @@
-# Pump.fun entry and adaptive-exit rules — v1 research freeze
+# Pump.fun entry and adaptive-exit rules — v1 baseline with v2 safety gates
 
 **Scope:** Pump.fun bonding-curve entries and management of an open position. This is deliberately separate from coin selection/rug screening, which is the next research phase.
 
@@ -74,9 +74,9 @@ The selected candidate is a wide runner trail with progressive gross-profit floo
 
 This is a small selected historical sample. Coin 2 and Coin 4 exploratory results must not be counted as strict entries. Coin 6 has only one accepted entry. No return is guaranteed.
 
-## 7. Next research phase: coin selection and rejection
+## 7. Coin-selection evidence and remaining validation
 
-This document does **not** decide which newly launched coins are safe enough to trade. Next, independently develop and test pre-entry vetoes for:
+The v2 implementation adds creator-sale, related-wallet concentration, token-tax and quote-asset safety gates. These checks remain separate from the price-action entry trigger and adaptive exit. The remaining work is to wire the evidence builders into the Helius/RPC runtime feed and validate the thresholds out of sample. Continue testing:
 - creator/dev initial allocation, linked wallets and early sells;
 - creator funding sources and coordinated wallet clusters;
 - top-holder, insider and cluster concentration;
