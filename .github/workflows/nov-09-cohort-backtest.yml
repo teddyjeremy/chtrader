@@ -1,0 +1,71 @@
+name: 9 November Pump.fun cohort discovery
+
+on:
+  push:
+    branches: [research/nov9-launch-cohort-backtest]
+    paths:
+      - "scripts/research/discover-nov-09-cohort.ts"
+      - ".github/workflows/nov-09-cohort-backtest.yml"
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: "Pump program signature pages (1000 signatures each); increase after the smoke test"
+        required: true
+        default: "30"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nov-09-pump-cohort-backtest
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+        with:
+          ref: research/nov9-launch-cohort-backtest
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Typecheck repository
+        run: npm run typecheck
+
+      - name: Discover 9 November launches and enrich Pump transactions
+        env:
+          HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
+          START_UTC: "2026-11-08T21:00:00Z"
+          END_UTC: "2026-11-09T21:00:00Z"
+          MAX_PAGES: ${{ inputs.max_pages || '30' }}
+        run: npx tsx scripts/research/discover-nov-09-cohort.ts
+
+      - name: Publish discovery summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## 9 November Pump.fun cohort discovery" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f data/nov-09-cohort/discovery-quality-report.json ]; then
+            cat data/nov-09-cohort/discovery-quality-report.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No completed discovery report was produced. Check the job logs for the Helius/API error." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload cohort discovery artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nov-09-pumpfun-cohort-discovery-${{ github.run_id }}
+          path: data/nov-09-cohort/
+          if-no-files-found: warn
+          retention-days: 30
