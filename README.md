@@ -30,7 +30,15 @@ This is not every Solana DEX or launchpad, and does not by itself provide histor
 - `npm run test:risk` — existing risk-analysis tests
 - `npm run test:entry` — strict entry-rule tests
 - `npm run test:paper-engine` — paper entry timing and execution-safety tests
+- `npm run test:market-pipeline` — quote normalization and evidence-pipeline tests
+- `npm run test:paper-runtime` — end-to-end paper entry scheduling tests
 - `npm run test:adaptive-exit` — adaptive-exit unit tests
+
+## Paper runtime
+
+- `src/bot/market-snapshot-pipeline.ts` builds strategy snapshots from verified quote-denominated market data and raw parsed swap events.
+- `src/bot/paper-runtime.ts` coordinates entry evaluation, next-one-second confirmation and adaptive paper exits.
+- The runtime has no signer or transaction-submission code. A real Helius/RPC source adapter, Pump curve decoder, attribution, holder, tax and quote-oracle providers are still required. Missing evidence fails closed to WATCH.
 
 ## Strategy and evidence
 
