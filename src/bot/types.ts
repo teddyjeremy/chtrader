@@ -81,7 +81,7 @@ export type MarketSnapshot = {
 };
 export type Decision = {
   mint: string; action: DecisionAction; score: number; reasons: string[];
-  strategyVersion: "pullback-reclaim-v0.2-risk-gated" | "pump-curve-entry-v1-adaptive-exit";
+  strategyVersion: "pullback-reclaim-v0.2-risk-gated" | "pump-curve-entry-v1-adaptive-exit" | "pump-curve-entry-v2-persistent-risk-gated";
   timestampMs: number; snapshot: MarketSnapshot;
 };
 export type PaperPosition = {
