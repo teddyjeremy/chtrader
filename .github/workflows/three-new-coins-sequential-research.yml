@@ -1,0 +1,95 @@
+name: Three new coin research (one at a time)
+
+on:
+  workflow_dispatch:
+    inputs:
+      coin_id:
+        description: Select exactly one mint to collect and analyze
+        required: true
+        type: choice
+        options:
+          - coin-seven
+          - coin-eight
+          - coin-nine
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: three-new-coins-sequential-research
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      COIN_ID: ${{ inputs.coin_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/coin-one-lifecycle
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Resolve selected mint
+        shell: bash
+        run: |
+          case "$COIN_ID" in
+            coin-seven) echo "MINT_ADDRESS=5NmhSUzikDT8QUiAX2oSNR7RSFD1i1krmnFXwheEpump" >> "$GITHUB_ENV" ;;
+            coin-eight) echo "MINT_ADDRESS=Ak5TTBUoMgak2HRgnmhMYVKFsxPxB6zQCmLnnDzmpump" >> "$GITHUB_ENV" ;;
+            coin-nine) echo "MINT_ADDRESS=BeD9XGnNPec9nPzCgfhwV8qzZbFLLKHbe23uFyDhpump" >> "$GITHUB_ENV" ;;
+            *) echo "Unsupported coin_id: $COIN_ID" >&2; exit 1 ;;
+          esac
+
+      - name: Restore collection checkpoints
+        uses: actions/cache/restore@v4
+        with:
+          path: data/checkpoints/${{ inputs.coin_id }}
+          key: ${{ runner.os }}-${{ inputs.coin_id }}-checkpoints-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-${{ inputs.coin_id }}-checkpoints-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Collect selected mint history (resume-safe)
+        env:
+          HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
+          MAX_SIGNATURES: "1000000"
+        run: npx tsx scripts/research/coin-lifecycle-resumable.ts
+
+      - name: Save collection checkpoints
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/checkpoints/${{ inputs.coin_id }}
+          key: ${{ runner.os }}-${{ inputs.coin_id }}-checkpoints-${{ github.run_id }}
+
+      - name: Upload raw research dataset
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.coin_id }}-raw-lifecycle-${{ github.run_id }}
+          path: |
+            data/${{ inputs.coin_id }}/
+            data/checkpoints/${{ inputs.coin_id }}/state.json
+            data/checkpoints/${{ inputs.coin_id }}/signatures.jsonl
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Write run summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Sequential coin collection" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Coin: $COIN_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Mint: $MINT_ADDRESS" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "data/$COIN_ID/report.json" ]; then
+            echo "Collector report:" >> "$GITHUB_STEP_SUMMARY"
+            cat "data/$COIN_ID/report.json" >> "$GITHUB_STEP_SUMMARY"
+          fi
