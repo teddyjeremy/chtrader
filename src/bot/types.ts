@@ -86,7 +86,7 @@ export type Decision = {
 };
 export type PaperPosition = {
   mint: string; entryPriceSol: number; quantity: number; notionalSol: number;
-  openedAtMs: number; stopPriceSol: number; highestPriceSol: number; entryCostSol: number;
+  openedAtMs: number; stopPriceSol: number; highestPriceSol: number; entryCostSol: number; roundTripCostPct: number;
 };
 export type ClosedPaperTrade = {
   mint: string; openedAtMs: number; closedAtMs: number; entryPriceSol: number;
