@@ -49,3 +49,29 @@ test("rejects stale data, non-curve markets and unavailable exit routes",()=>{
   ];
   for(const mutate of cases){const s=valid();mutate(s);assert.equal(evaluateEntry(s).action,"reject");}
 });
+
+test("creator selling is a hard pre-entry veto",()=>{
+  const s=valid();s.creatorRisk!.creatorSellSupplyPct60s=0.2;
+  const d=evaluateEntry(s);assert.equal(d.action,"reject");
+  assert.ok(d.reasons.includes("creator_wallet_sold_tokens_recently"));
+});
+test("unverified creator, flow or token economics evidence prevents buying",()=>{
+  const s=valid();s.creatorRisk!.status="partial";
+  const d=evaluateEntry(s);assert.equal(d.action,"watch");
+  assert.ok(d.reasons.includes("creator_and_related_wallet_evidence_not_verified"));
+});
+test("related-wallet concentration requires high-confidence attribution before hard veto",()=>{
+  const s=valid();s.creatorRisk!.relatedWalletBuyShare30s=50;s.creatorRisk!.clusterConfidence=0.4;
+  const d=evaluateEntry(s);assert.equal(d.action,"watch");
+  assert.ok(d.reasons.includes("possible_related_wallet_buy_concentration_needs_confirmation"));
+});
+test("excessive transfer tax rejects an otherwise valid entry",()=>{
+  const s=valid();s.tokenEconomics!.buyTransferTaxPct=3;
+  const d=evaluateEntry(s);assert.equal(d.action,"reject");
+  assert.ok(d.reasons.includes("token_transfer_tax_exceeds_configured_limit"));
+});
+test("a broken persistence window prevents entry",()=>{
+  const s=valid();s.flowPersistence!.windows[1]!.sellQuote=2;
+  const d=evaluateEntry(s);assert.equal(d.action,"watch");
+  assert.ok(d.reasons.includes("buying_pressure_window_2_failed"));
+});
