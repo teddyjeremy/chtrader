@@ -74,7 +74,7 @@ export type MarketSnapshot = {
   dataFresh: boolean; marketStateVerified: boolean; riskAssessment?: RiskAssessment;
   /** Verified creator/related-wallet attribution; absent or partial evidence forces WATCH. */
   creatorRisk?: CreatorRiskAssessment;
-  /** Consecutive completed, non-overlapping 2-second windows. */
+  /** Three completed 2-second rolling windows sampled one second apart. */
   flowPersistence?: FlowPersistenceAssessment;
   /** Current transfer-tax and quote-asset conversion metadata. */
   tokenEconomics?: TokenEconomicsAssessment;
