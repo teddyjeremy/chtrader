@@ -1,4 +1,9 @@
 import type { Decision, MarketSnapshot } from "./types.js";
+import {
+  evaluateCreatorAndClusterRisk,
+  evaluatePersistentBuyingPressure,
+  evaluateTokenEconomics
+} from "./market-guards.js";
 export const STRATEGY_VERSION = "pump-curve-entry-v1-adaptive-exit" as const;
 export type StrategyConfig = {
   minImpulsePct: number; minPullbackFraction: number; maxPullbackFraction: number;
@@ -33,6 +38,21 @@ export function evaluateEntry(s: MarketSnapshot, config: StrategyConfig = DEFAUL
   }
   if (hard.length) return decision(s, "reject", [...new Set(hard)]);
 
+  const creatorGuard = evaluateCreatorAndClusterRisk(
+    s.creatorRisk, s.creatorDistributing, s.suspiciousClusterDominance, s.timestampMs
+  );
+  const flowGuard = evaluatePersistentBuyingPressure(s.flowPersistence, s.timestampMs);
+  const economicsGuard = evaluateTokenEconomics(
+    s.tokenEconomics, s.estimatedRoundTripFeePct, s.timestampMs
+  );
+  const guardReject = [...creatorGuard.reject, ...flowGuard.reject, ...economicsGuard.reject];
+  const guardWatch = [...creatorGuard.watch, ...flowGuard.watch, ...economicsGuard.watch];
+  if (economicsGuard.effectiveRoundTripCostPct !== undefined &&
+      economicsGuard.effectiveRoundTripCostPct > config.maxRoundTripFeePct)
+    guardReject.push("round_trip_cost_including_taxes_above_strategy_limit");
+  if (guardReject.length)
+    return decision(s, "reject", [...new Set(guardReject)]);
+
   if (!Number.isFinite(s.impulsePct) || s.impulsePct < config.minImpulsePct) watch.push("60s_impulse_below_20pct_or_invalid");
   if (!Number.isFinite(s.pullbackFraction) || s.pullbackFraction < config.minPullbackFraction || s.pullbackFraction > config.maxPullbackFraction)
     watch.push("pullback_outside_10_to_40pct_or_invalid");
@@ -56,6 +76,7 @@ export function evaluateEntry(s: MarketSnapshot, config: StrategyConfig = DEFAUL
     watch.push("largest_buyer_share_missing_or_invalid");
   else if (concentration > config.maxLargestBuyerShare2s) watch.push("largest_buyer_share_above_72pct");
 
-  if (watch.length) return decision(s, "watch", [...new Set(watch)]);
+  if (watch.length || guardWatch.length)
+    return decision(s, "watch", [...new Set([...guardWatch, ...watch])]);
   return decision(s, "buy", ["strict_entry_conditions_passed"], 100);
 }
