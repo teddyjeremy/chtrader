@@ -166,6 +166,12 @@ async function main() {
   const swaps = new Map<string, Swap>();
   let inputRecords = 0, malformed = 0, parsedSwaps = 0, parsedDataRecords = 0, swapEventRecords = 0;
   const observedParsedDataKeys = new Set<string>();
+  const observedSwapEventKeys = new Set<string>();
+  const observedNativeInputKeys = new Set<string>();
+  const observedNativeOutputKeys = new Set<string>();
+  const observedTokenInputKeys = new Set<string>();
+  const observedTokenOutputKeys = new Set<string>();
+  const observedTopLevelKeys = new Set<string>();
   for (const file of files) {
     const rl = createInterface({ input: createReadStream(join(ROOT, file)), crlfDelay: Infinity });
     for await (const line of rl) {
@@ -173,13 +179,22 @@ async function main() {
       inputRecords++;
       try {
         const raw = obj(JSON.parse(line));
+        for (const key of Object.keys(raw)) observedTopLevelKeys.add(key);
         const parsed = obj(raw.parsed ?? raw);
         const pd = obj(first(parsed.parsedData, obj(parsed.summary).parsedData, raw.parsedData));
         if (Object.keys(pd).length) {
           parsedDataRecords++;
           for (const key of Object.keys(pd)) observedParsedDataKeys.add(key);
         }
-        if (Object.keys(obj(obj(raw.events).swap)).length) swapEventRecords++;
+        const eventSwap = obj(obj(parsed.events ?? raw.events).swap);
+        if (Object.keys(eventSwap).length) {
+          swapEventRecords++;
+          for (const key of Object.keys(eventSwap)) observedSwapEventKeys.add(key);
+          for (const key of Object.keys(obj(eventSwap.nativeInput))) observedNativeInputKeys.add(key);
+          for (const key of Object.keys(obj(eventSwap.nativeOutput))) observedNativeOutputKeys.add(key);
+          for (const key of Object.keys(obj(Array.isArray(eventSwap.tokenInputs) ? eventSwap.tokenInputs[0] : {}))) observedTokenInputKeys.add(key);
+          for (const key of Object.keys(obj(Array.isArray(eventSwap.tokenOutputs) ? eventSwap.tokenOutputs[0] : {}))) observedTokenOutputKeys.add(key);
+        }
         const swap = extractSwap(raw);
         if (!swap) continue;
         parsedSwaps++;
@@ -330,7 +345,15 @@ async function main() {
     mode: "PAPER_ONLY",
     sourceFiles: files,
     inputRecords, malformedRecords: malformed, parsedSwapRecords: parsedSwaps,
-    parsedDataRecords, swapEventRecords, observedParsedDataKeys: [...observedParsedDataKeys].slice(0, 40),
+    parsedDataRecords, swapEventRecords,
+    parserHealth: parsedSwaps > 0 ? "SWAPS_PARSED" : swapEventRecords > 0 ? "SWAP_EVENTS_PRESENT_BUT_NONE_PARSED" : "NO_SWAP_EVENTS_IN_SAMPLE",
+    observedParsedDataKeys: [...observedParsedDataKeys].slice(0, 40),
+    observedTopLevelKeys: [...observedTopLevelKeys].slice(0, 60),
+    observedSwapEventKeys: [...observedSwapEventKeys].slice(0, 40),
+    observedNativeInputKeys: [...observedNativeInputKeys].slice(0, 30),
+    observedNativeOutputKeys: [...observedNativeOutputKeys].slice(0, 30),
+    observedTokenInputKeys: [...observedTokenInputKeys].slice(0, 30),
+    observedTokenOutputKeys: [...observedTokenOutputKeys].slice(0, 30),
     distinctSwapRows: swaps.size, tokensWithSwaps: byMint.size,
     pullbackCandidates: candidateCount, watchSignals: signals.length,
     paperTradesOpened: paperTrades.length,
@@ -363,6 +386,9 @@ async function main() {
   };
   await writeFile(join(ROOT, "paper-trading-report.json"), JSON.stringify(report, null, 2) + "\n");
   console.log("PAPER_TRADING_REPORT " + JSON.stringify(report));
+  if (swapEventRecords > 0 && parsedSwaps === 0) {
+    throw new Error("Parser quality gate failed: Helius swap events exist, but zero swaps were reconstructed. Inspect observed*Keys in paper-trading-report.json.");
+  }
 }
 
 await main();
