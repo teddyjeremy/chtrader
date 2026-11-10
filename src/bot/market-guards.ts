@@ -64,8 +64,10 @@ export function evaluateCreatorAndClusterRisk(
     reject.push("creator_wallet_sold_tokens_recently");
   if (risk.creatorLinkedSellSupplyPct60s > config.maxCreatorLinkedSellSupplyPct60s)
     reject.push("creator_linked_wallets_sold_tokens_recently");
-  if (risk.relatedWalletSellSupplyPct60s > config.maxRelatedWalletSellSupplyPct60s)
-    reject.push("related_wallet_cluster_sold_tokens_recently");
+  if (risk.relatedWalletSellSupplyPct60s > config.maxRelatedWalletSellSupplyPct60s) {
+    if (highConfidence) reject.push("related_wallet_cluster_sold_tokens_recently");
+    else watch.push("possible_related_wallet_cluster_selling_needs_confirmation");
+  }
 
   const highConfidence = risk.clusterConfidence >= config.minClusterConfidence;
   if (highConfidence && risk.relatedWalletBuyShare30s > config.maxRelatedWalletBuyShare30s)
