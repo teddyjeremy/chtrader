@@ -1,82 +1,71 @@
-name: Remaining coin lifecycle research
+name: Independent coin lifecycle research
 on:
   workflow_dispatch:
   push:
     branches: [research/coin-one-lifecycle]
     paths:
       - "scripts/research/coin-lifecycle-resumable.ts"
+      - "scripts/research/derive-micro-windows.ts"
       - ".github/workflows/remaining-coins-research.yml"
 permissions:
   contents: read
   actions: read
-concurrency:
-  group: remaining-coin-lifecycle-research
-  cancel-in-progress: false
 jobs:
   collect:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - coin_id: coin-three
+            mint: 6r7D6ab6agnc5VcJxApia4HqbRikAeAEus2UYF9hpump
+          - coin_id: coin-four
+            mint: BYurrzk6JV3YaqwwVDAq7rvZC7mBGY1xCTE8PG5dpump
+          - coin_id: coin-five
+            mint: Cg1g9zBvydiuvCuqiLy5XrmR2LXyU54FGUHhzGVApump
+          - coin_id: coin-six
+            mint: 2NFDhipSmrn3GaU7UK6jPvYxbveBUvNs6ec71r2ipump
     runs-on: ubuntu-latest
     timeout-minutes: 300
+    concurrency:
+      group: lifecycle-${{ matrix.coin_id }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: actions/cache/restore@v4
+      - name: Restore this coin's checkpoints
+        uses: actions/cache/restore@v4
         with:
-          path: data/checkpoints
-          key: ${{ runner.os }}-coin-checkpoints-${{ github.run_id }}
+          path: data/checkpoints/${{ matrix.coin_id }}
+          key: ${{ runner.os }}-${{ matrix.coin_id }}-checkpoints-${{ github.run_id }}
           restore-keys: |
-            ${{ runner.os }}-coin-checkpoints-
+            ${{ runner.os }}-${{ matrix.coin_id }}-checkpoints-
       - run: npm install
-      - name: Type-check micro-window analysis
-        run: npx tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --types node scripts/research/derive-micro-windows.ts
-      - name: Restore completed Coin 1 dataset
-        uses: actions/download-artifact@v4
-        with:
-          name: coin-one-lifecycle-42781231100
-          run-id: 42781231100
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: data/coin-one
-      - name: Restore completed Coin 2 dataset
-        uses: actions/download-artifact@v4
-        with:
-          name: coin-two-lifecycle-42784189990
-          run-id: 42784189990
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: data/coin-two
-      - name: Collect Coins 3 to 6 sequentially (resume from checkpoints)
+      - name: Collect this coin (resume from its own checkpoint)
         env:
           HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
-        shell: bash
-        run: |
-          set +e
-          status=0
-          COIN_ID=coin-three MINT_ADDRESS=6r7D6ab6agnc5VcJxApia4HqbRikAeAEus2UYF9hpump npx tsx scripts/research/coin-lifecycle-resumable.ts || status=1
-          COIN_ID=coin-four MINT_ADDRESS=BYurrzk6JV3YaqwwVDAq7rvZC7mBGY1xCTE8PG5dpump npx tsx scripts/research/coin-lifecycle-resumable.ts || status=1
-          COIN_ID=coin-five MINT_ADDRESS=Cg1g9zBvydiuvCuqiLy5XrmR2LXyU54FGUHhzGVApump npx tsx scripts/research/coin-lifecycle-resumable.ts || status=1
-          COIN_ID=coin-six MINT_ADDRESS=2NFDhipSmrn3GaU7UK6jPvYxbveBUvNs6ec71r2ipump npx tsx scripts/research/coin-lifecycle-resumable.ts || status=1
-          exit "$status"
-      - name: Derive 5s, 15s, 30s and 60s lifecycle windows for all six coins
+          COIN_ID: ${{ matrix.coin_id }}
+          MINT_ADDRESS: ${{ matrix.mint }}
+          MAX_SIGNATURES: "1000000"
+        run: npx tsx scripts/research/coin-lifecycle-resumable.ts
+      - name: Derive this coin's 5s, 15s, 30s and 60s windows
         if: always()
+        env:
+          COIN_ID: ${{ matrix.coin_id }}
         run: npx tsx scripts/research/derive-micro-windows.ts
-      - name: Save resumable checkpoints
+      - name: Save this coin's checkpoints
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: data/checkpoints
-          key: ${{ runner.os }}-coin-checkpoints-${{ github.run_id }}
-      - name: Upload collected coin datasets
+          path: data/checkpoints/${{ matrix.coin_id }}
+          key: ${{ runner.os }}-${{ matrix.coin_id }}-checkpoints-${{ github.run_id }}
+      - name: Upload this coin's independent artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: remaining-coins-lifecycle-${{ github.run_id }}
-          path: |
-            data/coin-one/
-            data/coin-two/
-            data/coin-three/
-            data/coin-four/
-            data/coin-five/
-            data/coin-six/
-            data/all-coins-micro-window-index.json
-          if-no-files-found: warn
+          name: ${{ matrix.coin_id }}-lifecycle-${{ github.run_id }}
+          path: data/${{ matrix.coin_id }}/
+          if-no-files-found: error
           retention-days: 30
