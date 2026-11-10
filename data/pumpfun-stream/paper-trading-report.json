@@ -1,15 +1,19 @@
 {
-  "generatedAt": "2026-11-10T18:36:40.823Z",
+  "generatedAt": "2026-11-10T18:40:19.000Z",
   "mode": "PAPER_ONLY",
   "sourceFiles": [
     "2026-11-10-0001.jsonl",
+    "2026-11-10-0002.jsonl",
+    "2026-11-10-0003.jsonl",
+    "2026-11-10-0004.jsonl",
+    "2026-11-10-0005.jsonl",
     "2026-11-10.jsonl"
   ],
-  "inputRecords": 3000,
+  "inputRecords": 13000,
   "malformedRecords": 0,
-  "parsedSwapRecords": 168,
+  "parsedSwapRecords": 480,
   "parsedDataRecords": 0,
-  "swapEventRecords": 40,
+  "swapEventRecords": 101,
   "parserHealth": "SWAPS_PARSED",
   "observedParsedDataKeys": [],
   "observedTopLevelKeys": [
@@ -58,10 +62,10 @@
     "rawTokenAmount",
     "mint"
   ],
-  "distinctSwapRows": 168,
-  "tokensWithSwaps": 56,
-  "pullbackCandidates": 13,
-  "watchSignals": 13,
+  "distinctSwapRows": 480,
+  "tokensWithSwaps": 130,
+  "pullbackCandidates": 28,
+  "watchSignals": 28,
   "paperTradesOpened": 0,
   "shadowTradesClosed": 0,
   "shadowWins": 0,
