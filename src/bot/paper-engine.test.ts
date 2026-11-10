@@ -36,3 +36,22 @@ test("paper engine rejects a delayed signal and never opens after migration",()=
   const migrated=snapshot(11000);migrated.phase="migrated";
   assert.equal(engine.open(decision,migrated),false);
 });
+
+test("paper engine rechecks creator-sale veto at entry time",()=>{
+  const signal=snapshot(10000);
+  const decision=evaluateEntry(signal);
+  const entry=snapshot(11000);entry.creatorRisk!.creatorSellSupplyPct60s=0.2;
+  const engine=new PaperEngine();
+  assert.equal(decision.action,"buy");
+  assert.equal(engine.open(decision,entry),false);
+});
+test("paper engine exits an open position on confirmed creator distribution",()=>{
+  const signal=snapshot(10000);
+  const engine=new PaperEngine();
+  const decision=evaluateEntry(signal);
+  assert.equal(engine.open(decision,snapshot(11000)),true);
+  const distribution=snapshot(12000);
+  distribution.creatorRisk!.creatorSellSupplyPct60s=0.2;
+  const trade=engine.mark(distribution);
+  assert.equal(trade?.exitReason,"emergency_creator_or_related_wallet_distribution");
+});
