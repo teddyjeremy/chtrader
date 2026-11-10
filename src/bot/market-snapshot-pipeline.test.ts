@@ -76,7 +76,7 @@ test("incomplete history, holder data or tax metadata fails closed to WATCH", ()
 
 test("stale quote conversion cannot be presented as a valid SOL market snapshot", () => {
   const value = input();
-  value.quoteAssetObservedAtMs = 1;
+  value.quoteAssetObservedAtMs = -1;
   const snapshot = buildMarketSnapshot(value);
   assert.equal(snapshot.marketStateVerified, false);
   assert.equal(snapshot.dataFresh, false);
