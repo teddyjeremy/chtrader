@@ -87,3 +87,38 @@ This document does **not** decide which newly launched coins are safe enough to 
 - creator/whale distribution and rug-like liquidity/market behaviour.
 
 Keep coin-selection rules separate from the entry trigger and adaptive exit rules. Test them on winners and losers, including tokens that fail or never migrate. Do not tune these selection rules on the same tokens used to score them.
+
+
+## 8. V2 pre-entry safety gates (implemented; provisional thresholds)
+
+The entry evaluator now uses strategy version `pump-curve-entry-v2-persistent-risk-gated`. The v1 price trigger and adaptive exit remain, but a BUY also requires the following evidence. Missing or stale evidence produces WATCH; confirmed veto conditions produce REJECT.
+
+### Creator and related-wallet distribution
+- Reject if the identified creator sells more than 0.05% of total supply in the preceding 60 seconds.
+- Reject if confidently attributed creator-linked wallets sell more than 0.25% of supply in the preceding 60 seconds.
+- Reject if a high-confidence related-wallet cluster (confidence >= 0.70) accounts for more than 35% of buy volume over 30 seconds or currently holds more than 20% of supply.
+- If cluster concentration is high but attribution confidence is below 0.70, WATCH for confirmation rather than automatically labeling wallets malicious.
+- Same-slot activity alone is not sufficient proof of coordination.
+- Creator identity, sell attribution and cluster evidence must be verified and no older than 15 seconds. Unknown attribution means WATCH.
+
+### Persistent buying pressure
+- Require three consecutive, completed, non-overlapping 2-second windows (6 seconds total).
+- Each window independently requires buy quote > 3x sell quote, at least 3 unique buyers, sellers <= half the buyers, and largest buyer <=72% of buy quote.
+- Require at least 5 distinct buyer wallets across the three windows.
+- Windows must be contiguous within 250ms and the flow evidence must be fresh. Missing, stale, malformed or failed windows mean WATCH.
+- This is stricter than the original single 2-second trigger and will reduce trade frequency.
+
+### Token taxes and quote-asset normalization
+- Require verified buy and sell token transfer-tax estimates, plus quote-asset mint, symbol, decimals, transfer tax and a fresh SOL conversion rate.
+- Reject if either token transfer-tax side exceeds 2%.
+- Calculate effective round-trip cost multiplicatively from venue/impact costs, token buy tax, token sell tax and quote-asset transfer tax on both quote movements. Reject above 4%.
+- The market-data producer must normalize `priceSol`, `liquiditySol`, quote volumes and paper notional into SOL using the verified quote conversion. A stable or other quote asset must not be assumed to equal USD or SOL.
+- Tax metadata must reflect the active token program/extensions and current epoch where applicable. Unknown dynamic transfer fees mean WATCH, not a zero-tax assumption.
+
+### Paper execution
+- The paper engine re-evaluates all gates on the next completed entry bar; an earlier BUY signal cannot bypass a new creator sale, failed flow window, stale tax reading or changed quote conversion.
+- Position sizing includes the modeled round-trip cost in addition to the hard-stop distance. Entry and exit cost estimates include transfer taxes.
+- The current feed still must populate the new `creatorRisk`, `flowPersistence` and `tokenEconomics` snapshot fields. Until the Helius/RPC ingestion pipeline supplies and validates those fields, the bot should remain in WATCH and must not open positions.
+
+### Calibration warning
+These thresholds are explicit starting guardrails, not statistically validated optima. Validate creator-linked wallet attribution to avoid false positives; evaluate the rules on winners and losers across many tokens before changing thresholds. Never infer creator control from a shared slot alone.
