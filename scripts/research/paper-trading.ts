@@ -181,7 +181,7 @@ async function main() {
         if (next && next.priceSol >= current.priceSol * 0.99 && next.priceSol <= current.priceSol * 1.02) {
           const entryHistory = rows.filter(r => r.timestamp >= next.timestamp - 60 && r.timestamp <= next.timestamp);
           if (flowPass(entryHistory, next.timestamp).pass) {
-            shadowEntryBySignature.set(next.signature, { mint, timestamp: next.timestamp, priceSol: next.priceSol, signalId });
+            shadowEntryBySignature.set(mint + "|" + next.signature, { mint, timestamp: next.timestamp, priceSol: next.priceSol, signalId });
           }
         }
       }
@@ -241,7 +241,7 @@ async function main() {
       });
       open.splice(p, 1);
     }
-    const candidate = shadowEntryBySignature.get(event.signature);
+    const candidate = shadowEntryBySignature.get(event.mint + "|" + event.signature);
     if (candidate && candidate.mint === event.mint && open.length < MAX_OPEN_POSITIONS && !open.some(p => p.mint === candidate.mint) && cashUsd >= buyCostUsd) {
       const tradeId = candidate.mint + ":" + candidate.timestamp + ":" + event.signature;
       open.push({
