@@ -233,7 +233,7 @@ async function main() {
       open.splice(p, 1);
     }
     const candidate = shadowEntryBySignature.get(event.signature);
-    if (candidate && candidate.mint === event.mint && open.length < MAX_OPEN_POSITIONS && cashUsd >= buyCostUsd) {
+    if (candidate && candidate.mint === event.mint && open.length < MAX_OPEN_POSITIONS && !open.some(p => p.mint === candidate.mint) && cashUsd >= buyCostUsd) {
       const tradeId = candidate.mint + ":" + candidate.timestamp + ":" + event.signature;
       open.push({
         tradeId, signalId: candidate.signalId, mint: candidate.mint,
