@@ -1,20 +1,67 @@
 {
-  "generatedAt": "2026-11-10T18:20:43.388Z",
+  "generatedAt": "2026-11-10T18:36:40.823Z",
   "mode": "PAPER_ONLY",
   "sourceFiles": [
     "2026-11-10-0001.jsonl",
     "2026-11-10.jsonl"
   ],
-  "inputRecords": 2000,
+  "inputRecords": 3000,
   "malformedRecords": 0,
-  "parsedSwapRecords": 0,
+  "parsedSwapRecords": 168,
   "parsedDataRecords": 0,
-  "swapEventRecords": 25,
+  "swapEventRecords": 40,
+  "parserHealth": "SWAPS_PARSED",
   "observedParsedDataKeys": [],
-  "distinctSwapRows": 0,
-  "tokensWithSwaps": 0,
-  "pullbackCandidates": 0,
-  "watchSignals": 0,
+  "observedTopLevelKeys": [
+    "description",
+    "type",
+    "source",
+    "fee",
+    "feePayer",
+    "signature",
+    "slot",
+    "timestamp",
+    "tokenTransfers",
+    "nativeTransfers",
+    "accountData",
+    "transactionError",
+    "instructions",
+    "lighthouseData",
+    "events"
+  ],
+  "observedSwapEventKeys": [
+    "nativeInput",
+    "nativeOutput",
+    "tokenInputs",
+    "tokenOutputs",
+    "nativeFees",
+    "tokenFees",
+    "innerSwaps"
+  ],
+  "observedNativeInputKeys": [
+    "account",
+    "amount"
+  ],
+  "observedNativeOutputKeys": [
+    "account",
+    "amount"
+  ],
+  "observedTokenInputKeys": [
+    "userAccount",
+    "tokenAccount",
+    "rawTokenAmount",
+    "mint"
+  ],
+  "observedTokenOutputKeys": [
+    "userAccount",
+    "tokenAccount",
+    "rawTokenAmount",
+    "mint"
+  ],
+  "distinctSwapRows": 168,
+  "tokensWithSwaps": 56,
+  "pullbackCandidates": 13,
+  "watchSignals": 13,
   "paperTradesOpened": 0,
   "shadowTradesClosed": 0,
   "shadowWins": 0,
@@ -46,7 +93,7 @@
     "note": "Approximation for research only. Actual venue/creator fees, priority fees, route impact and slippage vary by transaction."
   },
   "feedLimitations": "Prices and flow are reconstructed from parsed swap events, not true one-second bonding-curve snapshots. Shadow fills bypass creator, tax, reserve and exit-route checks and are research diagnostics only.",
-  "status": "No qualifying pullback candidates were found in the parsed swap feed.",
+  "status": "Strategy-eligible trades remain blocked as WATCH until creator-risk and bonding-curve exit verification are available. Separate shadow-only $1 simulations measure price/flow setups without treating them as valid strategy trades.",
   "outputs": [
     "paper-signals.jsonl",
     "paper-trades.jsonl",

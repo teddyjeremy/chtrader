@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-11-10T18:20:42.827Z",
+  "generatedAt": "2026-11-10T18:36:40.162Z",
   "source": "Helius Solana RPC + Enhanced Transactions",
   "program": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
   "pagesScannedThisRun": 1,
   "maxPages": 1,
-  "checkpointBeforeRun": null,
+  "checkpointBeforeRun": "V4caWbbX5pSf3JavDFbkVz53iMYw2sGAgNkFnem9P52V3zkp6BQpg8YEBq6TiccvVeeJiXAjBx3STZhe3upGjUz",
   "newestSignatureStored": "V4caWbbX5pSf3JavDFbkVz53iMYw2sGAgNkFnem9P52V3zkp6BQpg8YEBq6TiccvVeeJiXAjBx3STZhe3upGjUz",
   "signaturesDiscovered": 1000,
   "enhancedTransactionsFetchedThisRun": 1000,
   "enhancedTransactionsMissingThisRun": 0,
-  "discoveryComplete": true,
-  "pendingCursorBefore": null,
-  "pendingWorkRemaining": false,
-  "completeness": "POLL_COMPLETE_TO_CHECKPOINT",
+  "discoveryComplete": false,
+  "pendingCursorBefore": "67HsVcju7u3511n9BNdv9RKPt3fM6KvsihuPR5z2sw1ULX5kykXqrDKR8Tk1AHLrV8zmptj7qd73pdRJU2NWH9SH",
+  "pendingWorkRemaining": true,
+  "completeness": "HISTORICAL_CATCHUP_IN_PROGRESS",
   "note": "Raw Pump program transactions only; not yet a validated mint lifecycle, bonding-curve reconstruction, strategy signal, or profitability result."
 }
