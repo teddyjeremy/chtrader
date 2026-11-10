@@ -64,7 +64,7 @@ async function enhanced(signatures: string[]): Promise<any[]> {
 const discovered: any[] = [];
 let before: string | undefined;
 let pages = 0;
-let reachedCheckpoint = !previousCheckpoint;
+let reachedCheckpoint = false;
 while (pages < MAX_PAGES && !reachedCheckpoint) {
   const options: Record<string, unknown> = { limit: 1000, commitment: "finalized" };
   if (before) options.before = before;
@@ -79,6 +79,7 @@ while (pages < MAX_PAGES && !reachedCheckpoint) {
     discovered.push(row);
   }
   before = page[page.length - 1].signature;
+  if (!previousCheckpoint) reachedCheckpoint = true; // Bootstrap with only the latest page; subsequent runs use the checkpoint.
   console.log(JSON.stringify({ stage: "signature-poll", pages, pageSize: page.length, newSignatures: discovered.length, checkpointFound: reachedCheckpoint }));
   if (page.length < 1000) { reachedCheckpoint = true; break; }
 }
