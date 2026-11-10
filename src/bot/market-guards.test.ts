@@ -84,3 +84,10 @@ test("vetoes selling from a high-confidence related-wallet cluster",()=>{
   const risk=creatorRisk();risk.relatedWalletSellSupplyPct60s=0.5;
   assert.ok(evaluateCreatorAndClusterRisk(risk,false,false,10_000).reject.includes("related_wallet_cluster_sold_tokens_recently"));
 });
+
+test("low-confidence related-wallet selling produces WATCH rather than a hard veto",()=>{
+  const risk=creatorRisk();risk.clusterConfidence=0.4;risk.relatedWalletSellSupplyPct60s=0.5;
+  const result=evaluateCreatorAndClusterRisk(risk,false,false,10_000);
+  assert.equal(result.reject.length,0);
+  assert.ok(result.watch.includes("possible_related_wallet_cluster_selling_needs_confirmation"));
+});
