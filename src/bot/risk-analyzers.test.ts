@@ -47,6 +47,7 @@ test("common funder evidence estimates coordinated buys and current balances sep
     ]
   });
   assert.equal(result.coordinatedWalletCount,2);
+  assert.deepEqual(result.coordinatedWallets,["a","b"]);
   assert.equal(result.acquiredSupplyPct,20);
   assert.equal(result.currentHoldingsSupplyPct,8);
   assert.ok(result.confidence>=0.55);
