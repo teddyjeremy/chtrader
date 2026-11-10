@@ -118,14 +118,23 @@ async function main() {
   await mkdir(ROOT, { recursive: true });
   const files = (await readdir(ROOT)).filter(f => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f)).sort();
   const swaps = new Map<string, Swap>();
-  let inputRecords = 0, malformed = 0, parsedSwaps = 0;
+  let inputRecords = 0, malformed = 0, parsedSwaps = 0, parsedDataRecords = 0, swapEventRecords = 0;
+  const observedParsedDataKeys = new Set<string>();
   for (const file of files) {
     const rl = createInterface({ input: createReadStream(join(ROOT, file)), crlfDelay: Infinity });
     for await (const line of rl) {
       if (!line.trim()) continue;
       inputRecords++;
       try {
-        const swap = extractSwap(obj(JSON.parse(line)));
+        const raw = obj(JSON.parse(line));
+        const parsed = obj(raw.parsed ?? raw);
+        const pd = obj(first(parsed.parsedData, obj(parsed.summary).parsedData, raw.parsedData));
+        if (Object.keys(pd).length) {
+          parsedDataRecords++;
+          for (const key of Object.keys(pd)) observedParsedDataKeys.add(key);
+        }
+        if (Object.keys(obj(obj(raw.events).swap)).length) swapEventRecords++;
+        const swap = extractSwap(raw);
         if (!swap) continue;
         parsedSwaps++;
         swaps.set(swap.signature + "|" + swap.mint + "|" + swap.side, swap);
@@ -267,6 +276,7 @@ async function main() {
     mode: "PAPER_ONLY",
     sourceFiles: files,
     inputRecords, malformedRecords: malformed, parsedSwapRecords: parsedSwaps,
+    parsedDataRecords, swapEventRecords, observedParsedDataKeys: [...observedParsedDataKeys].slice(0, 40),
     distinctSwapRows: swaps.size, tokensWithSwaps: byMint.size,
     pullbackCandidates: candidateCount, watchSignals: signals.length,
     paperTradesOpened: paperTrades.length,
@@ -291,6 +301,7 @@ async function main() {
       exampleAtFlatPrice: { entryFeeUsd: 0.01, entrySlippageUsd: 0.005, entryNetworkUsd: 0.001, exitFeeUsd: 0.01, exitSlippageUsd: 0.005, exitNetworkUsd: 0.001, totalRoundTripCostUsd: 0.032 },
       note: "Approximation for research only. Actual venue/creator fees, priority fees, route impact and slippage vary by transaction."
     },
+    feedLimitations: "Prices and flow are reconstructed from parsed swap events, not true one-second bonding-curve snapshots. Shadow fills bypass creator, tax, reserve and exit-route checks and are research diagnostics only.",
     status: signals.length
       ? "Strategy-eligible trades remain blocked as WATCH until creator-risk and bonding-curve exit verification are available. Separate shadow-only $1 simulations measure price/flow setups without treating them as valid strategy trades."
       : "No qualifying pullback candidates were found in the parsed swap feed.",
