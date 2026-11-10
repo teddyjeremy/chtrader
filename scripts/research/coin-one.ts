@@ -9,6 +9,9 @@ const ENHANCED = `https://api.helius.xyz/v0/transactions?api-key=${encodeURIComp
 const OUT = join("data","coin-one");
 const MAX_SIGNATURES = Number(process.env.MAX_SIGNATURES ?? 100000);
 const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms));
+// Free-tier Enhanced API limit is 2 req/s. Target ~1.1 req/s to leave headroom.
+const ENHANCED_MIN_INTERVAL_MS=900;
+let lastEnhancedRequestAt=0;
 
 async function rpc(method:string, params:unknown[]) {
   for(let attempt=0;attempt<6;attempt++){
@@ -21,14 +24,32 @@ async function rpc(method:string, params:unknown[]) {
   throw new Error(`${method}: retries exhausted`);
 }
 async function enhanced(signatures:string[]) {
-  for(let attempt=0;attempt<6;attempt++){
+  for(let attempt=0;attempt<8;attempt++){
+    const waitForSlot=Math.max(0,lastEnhancedRequestAt+ENHANCED_MIN_INTERVAL_MS-Date.now());
+    if(waitForSlot>0) await sleep(waitForSlot);
+    lastEnhancedRequestAt=Date.now();
     const res=await fetch(ENHANCED,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({transactions:signatures}),signal:AbortSignal.timeout(60000)});
-    const body=await res.json() as unknown;
+    // Helius may return plain-text 429 bodies; read text first instead of assuming JSON.
+    const raw=await res.text();
+    let body:unknown=raw;
+    try { body=raw?JSON.parse(raw):null; } catch { /* preserve non-JSON response text */ }
     if(res.ok) return Array.isArray(body)?body:[];
-    if(res.status!==429 && res.status<500) throw new Error(`enhanced: ${res.status} ${JSON.stringify(body).slice(0,500)}`);
-    await sleep(Math.min(30000,1000*2**attempt));
+    const detail=typeof body==="string"?body:JSON.stringify(body);
+    if(res.status!==429 && res.status<500) throw new Error(`enhanced: ${res.status} ${detail.slice(0,500)}`);
+    if(res.status===429 && /credit|monthly quota|out of quota/i.test(detail)){
+      throw new Error(`Helius appears to have exhausted the account's available credits/quota: ${detail.slice(0,500)}`);
+    }
+    const retryAfter=res.headers.get("retry-after");
+    let retryMs=0;
+    if(retryAfter){
+      const seconds=Number(retryAfter);
+      retryMs=Number.isFinite(seconds)?seconds*1000:Math.max(0,Date.parse(retryAfter)-Date.now());
+    }
+    const backoff=Math.min(60000,2000*2**attempt);
+    await sleep(Math.max(retryMs,backoff));
+    console.warn(JSON.stringify({phase:"enhanced-retry",status:res.status,attempt:attempt+1,waitMs:Math.max(retryMs,backoff)}));
   }
-  throw new Error("enhanced transactions retries exhausted");
+  throw new Error("enhanced transactions retries exhausted after rate-limit/server backoff");
 }
 async function main(){
   await mkdir(OUT,{recursive:true});
