@@ -21,6 +21,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:risk
       - run: npm run test:market-guards
+      - run: npm run test:market-pipeline
+      - run: npm run test:paper-runtime
       - run: npm run test:entry
       - run: npm run test:paper-engine
       - run: npm run test:adaptive-exit
