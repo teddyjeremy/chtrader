@@ -1,4 +1,4 @@
-name: Adaptive exit validation
+name: Adaptive entry and exit validation
 on:
   push:
     branches:
@@ -19,4 +19,6 @@ jobs:
           node-version: 22
       - run: npm install --no-package-lock
       - run: npm run typecheck
+      - run: npm run test:risk
+      - run: npm run test:entry
       - run: npm run test:adaptive-exit

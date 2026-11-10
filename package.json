@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "research:derive": "tsx src/research/derive.ts",
     "test:risk": "tsx --test src/bot/risk-analyzers.test.ts",
+    "test:entry": "tsx --test src/bot/rules.test.ts",
     "test:adaptive-exit": "tsx --test src/bot/adaptive-exit-manager.test.ts"
   },
   "devDependencies": {
