@@ -96,6 +96,7 @@ The entry evaluator now uses strategy version `pump-curve-entry-v2-persistent-ri
 ### Creator and related-wallet distribution
 - Reject if the identified creator sells more than 0.05% of total supply in the preceding 60 seconds.
 - Reject if confidently attributed creator-linked wallets sell more than 0.25% of supply in the preceding 60 seconds.
+- Reject if the identified related-wallet cluster sells more than 0.25% of supply in the preceding 60 seconds.
 - Reject if a high-confidence related-wallet cluster (confidence >= 0.70) accounts for more than 35% of buy volume over 30 seconds or currently holds more than 20% of supply.
 - If cluster concentration is high but attribution confidence is below 0.70, WATCH for confirmation rather than automatically labeling wallets malicious.
 - Same-slot activity alone is not sufficient proof of coordination.
