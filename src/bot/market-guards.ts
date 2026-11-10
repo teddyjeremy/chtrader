@@ -60,6 +60,7 @@ export function evaluateCreatorAndClusterRisk(
     watch.push("creator_or_cluster_metrics_invalid");
     return { reject, watch };
   }
+  const highConfidence = risk.clusterConfidence >= config.minClusterConfidence;
   if (risk.creatorSellSupplyPct60s > config.maxCreatorSellSupplyPct60s)
     reject.push("creator_wallet_sold_tokens_recently");
   if (risk.creatorLinkedSellSupplyPct60s > config.maxCreatorLinkedSellSupplyPct60s)
@@ -68,8 +69,6 @@ export function evaluateCreatorAndClusterRisk(
     if (highConfidence) reject.push("related_wallet_cluster_sold_tokens_recently");
     else watch.push("possible_related_wallet_cluster_selling_needs_confirmation");
   }
-
-  const highConfidence = risk.clusterConfidence >= config.minClusterConfidence;
   if (highConfidence && risk.relatedWalletBuyShare30s > config.maxRelatedWalletBuyShare30s)
     reject.push("related_wallets_dominate_recent_buy_volume");
   else if (risk.relatedWalletBuyShare30s > config.maxRelatedWalletBuyShare30s)
