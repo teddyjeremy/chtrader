@@ -2,7 +2,7 @@ import type { ClosedPaperTrade, Decision, MarketSnapshot, PaperPosition } from "
 import { AdaptiveExitManager, DEFAULT_ADAPTIVE_EXIT_CONFIG } from "./adaptive-exit-manager.js";
 import type { ExitConfig } from "./adaptive-exit-manager.js";
 import { evaluateEntry } from "./rules.js";
-import { evaluateTokenEconomics } from "./market-guards.js";
+import { evaluateCreatorAndClusterRisk, evaluateTokenEconomics } from "./market-guards.js";
 
 export type PaperConfig = {
   startingEquitySol: number;
@@ -80,7 +80,13 @@ export class PaperEngine {
     let reason: string | undefined;
     let exitPrice = s.priceSol;
     if (!s.exitRouteAvailable || !s.marketStateVerified) reason = "emergency_exit_route_or_state_failure";
-    else if (s.creatorDistributing || s.suspiciousClusterDominance) reason = "emergency_distribution_or_cluster";
+    else {
+      const creatorGuard = evaluateCreatorAndClusterRisk(
+        s.creatorRisk, s.creatorDistributing, s.suspiciousClusterDominance, s.timestampMs
+      );
+      if (creatorGuard.reject.length) reason = "emergency_creator_or_related_wallet_distribution";
+    }
+    if (!reason) {
     else {
       const decision = manager.onBar({
         timestampMs: s.timestampMs,
