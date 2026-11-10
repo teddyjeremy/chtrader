@@ -1,5 +1,6 @@
 name: Coin 1 lifecycle research
 on:
+  workflow_dispatch:
   push:
     branches:
       - research/coin-one-lifecycle
