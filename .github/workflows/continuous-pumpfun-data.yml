@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "scripts/research/collect-pumpfun-stream.ts"
+      - "scripts/research/paper-trading.ts"
       - ".github/workflows/continuous-pumpfun-data.yml"
   schedule:
     - cron: "5,20,35,50 * * * *"
@@ -50,9 +51,11 @@ jobs:
           MAX_PAGES: ${{ inputs.max_pages || '20' }}
         run: npx tsx scripts/research/collect-pumpfun-stream.ts
 
-      # Commit progress even when Helius fails or the collector exits early.
-      # The saved pending queue and batch files let the next scheduled/manual run resume.
-      - name: Commit dataset and resumable progress
+      - name: Rebuild $1 paper signals and ledger
+        if: always()
+        run: npx tsx scripts/research/paper-trading.ts
+
+      - name: Commit dataset, paper results and resumable progress
         if: always()
         shell: bash
         run: |
@@ -60,19 +63,21 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/pumpfun-stream/
           if git diff --cached --quiet; then
-            echo "No dataset or checkpoint changes to commit."
+            echo "No dataset, paper results or checkpoint changes to commit."
           else
-            git commit -m "data: checkpoint Pump.fun stream $(date -u +%Y-%m-%dT%H:%MZ)"
+            git commit -m "data: update Pump.fun research and paper ledger $(date -u +%Y-%m-%dT%H:%MZ)"
             git pull --rebase origin main
             git push origin HEAD:main
           fi
 
-      - name: Publish collection report
+      - name: Publish collection and paper report
         if: always()
         run: |
-          echo "## Continuous Pump.fun collection" >> "$GITHUB_STEP_SUMMARY"
-          if [ -f data/pumpfun-stream/latest-poll-report.json ]; then
-            cat data/pumpfun-stream/latest-poll-report.json >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No collection report was produced. Inspect the collector logs." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "## Continuous Pump.fun collection and paper trading" >> "$GITHUB_STEP_SUMMARY"
+          for report in data/pumpfun-stream/latest-poll-report.json data/pumpfun-stream/paper-trading-report.json; do
+            if [ -f "$report" ]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "### $report" >> "$GITHUB_STEP_SUMMARY"
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
