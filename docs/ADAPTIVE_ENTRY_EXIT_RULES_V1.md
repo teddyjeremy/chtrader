@@ -76,7 +76,7 @@ This is a small selected historical sample. Coin 2 and Coin 4 exploratory result
 
 ## 7. Coin-selection evidence and remaining validation
 
-The v2 implementation adds creator-sale, related-wallet concentration, token-tax and quote-asset safety gates. These checks remain separate from the price-action entry trigger and adaptive exit. The remaining work is to wire the evidence builders into the Helius/RPC runtime feed and validate the thresholds out of sample. Continue testing:
+The v2 implementation adds creator-sale, related-wallet concentration, token-tax and quote-asset safety gates. These checks remain separate from the price-action entry trigger and adaptive exit. The repository now includes a strategy snapshot pipeline and paper runtime coordinator. A concrete Helius/RPC adapter must still supply trustworthy raw swap events, creator/cluster attribution, holder balances, token tax metadata, quote-asset conversion and executable curve metrics. The pipeline deliberately marks incomplete evidence partial, causing WATCH. Continue testing:
 - creator/dev initial allocation, linked wallets and early sells;
 - creator funding sources and coordinated wallet clusters;
 - top-holder, insider and cluster concentration;
@@ -113,13 +113,23 @@ The entry evaluator now uses strategy version `pump-curve-entry-v2-persistent-ri
 - Require verified buy and sell token transfer-tax estimates, plus quote-asset mint, symbol, decimals, transfer tax and a fresh SOL conversion rate.
 - Reject if either token transfer-tax side exceeds 2%.
 - Calculate effective round-trip cost multiplicatively from venue/impact costs, token buy tax, token sell tax and quote-asset transfer tax on both quote movements. Reject above 4%.
-- The market-data producer must normalize `priceSol`, `liquiditySol`, quote volumes and paper notional into SOL using the verified quote conversion. The rolling-window builder and creator-risk builder are implemented as pure helpers; `quoteUnitsToSol` and `quotePriceToSol` provide conversion helpers. The runtime data ingestion still needs to call them and populate the snapshot fields. A stable or other quote asset must not be assumed to equal USD or SOL.
+- The market-data producer must normalize `priceSol`, `liquiditySol`, quote volumes and paper notional into SOL using the verified quote conversion. `buildMarketSnapshot` now calls the rolling-window and creator-risk builders, derives the latest 2-second flow fields, normalizes quote-denominated prices/liquidity/10-second volumes to SOL, and creates token-economics evidence. A stable or other quote asset must not be assumed to equal USD or SOL. The producer still must provide verified raw inputs; the helper cannot prove the truth of caller-supplied attribution or oracle metadata.
 - Tax metadata must reflect the active token program/extensions and current epoch where applicable. Unknown dynamic transfer fees mean WATCH, not a zero-tax assumption.
 
 ### Paper execution
 - The paper engine re-evaluates all gates on the next completed entry bar; an earlier BUY signal cannot bypass a new creator sale, failed flow window, stale tax reading or changed quote conversion.
 - Position sizing includes the modeled round-trip cost in addition to the hard-stop distance. Entry and exit cost estimates include transfer taxes.
-- The current feed still must populate the new `creatorRisk`, `flowPersistence` and `tokenEconomics` snapshot fields. Until the Helius/RPC ingestion pipeline supplies and validates those fields, the bot should remain in WATCH and must not open positions.
+- The new `PaperTradingRuntime` consumes market-frame inputs, builds the snapshot through `buildMarketSnapshot`, evaluates the entry, waits for the next completed one-second frame, and delegates adaptive exits to `PaperEngine`. It has no wallet or transaction-submission path. It will still remain in WATCH until a real Helius/RPC producer supplies complete, fresh, correctly attributed inputs.
 
 ### Calibration warning
 These thresholds are explicit starting guardrails, not statistically validated optima. Validate creator-linked wallet attribution to avoid false positives; evaluate the rules on winners and losers across many tokens before changing thresholds. Never infer creator control from a shared slot alone.
+
+
+## 9. Integrated paper runtime boundary
+
+- `buildMarketSnapshot` is the single adapter boundary for strategy-ready snapshots. It rejects malformed raw swap evidence, requires fresh quote conversion and tax metadata, and derives creator-risk and persistent-flow assessments.
+- Quote-denominated price, liquidity and 10-second buy/sell volumes are converted to SOL only with verified quote metadata. Two-second flow ratios remain in quote units, where buy and sell are directly comparable.
+- `PaperTradingRuntime` coordinates snapshot construction, entry evaluation, one-second delayed entry confirmation, and adaptive paper exits.
+- The GitHub Actions validation workflow runs the new snapshot-pipeline and paper-runtime tests alongside the existing strategy tests.
+- **Still not connected:** a production Helius WebSocket/RPC subscription, Pump bonding-curve account decoder, authoritative creator/related-wallet attribution, holder-balance fetcher, token-2022 transfer-fee decoder, quote oracle, executable curve quote/impact model, or transaction confirmation layer. Do not mark feed evidence verified until those sources are implemented and independently checked.
+- The paper runtime is not a live bot and must not be connected to signing or order submission without a separate audited execution implementation.
