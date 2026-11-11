@@ -1,5 +1,6 @@
 import type { Decision, MarketSnapshot } from "./types.js";
 import {
+  DEFAULT_MARKET_GUARD_CONFIG,
   evaluateCreatorAndClusterRisk,
   evaluatePersistentBuyingPressure,
   evaluateTokenEconomics
@@ -10,12 +11,16 @@ export type StrategyConfig = {
   minPivotReclaimPct: number; minBuySellQuoteRatio2s: number; minUniqueBuyers2s: number;
   maxSellerToBuyerRatio2s: number; maxLargestBuyerShare2s: number;
   maxEntryImpactPct: number; maxExitImpactPct: number; maxRoundTripFeePct: number;
+  minCreatorExitRecoveryImpulsePct: number;
+  minCreatorExitRecoveryPivotPct: number;
 };
 export const DEFAULT_CONFIG: StrategyConfig = {
   minImpulsePct: 20, minPullbackFraction: 0.10, maxPullbackFraction: 0.40,
   minPivotReclaimPct: 1.0, minBuySellQuoteRatio2s: 3.0, minUniqueBuyers2s: 3,
   maxSellerToBuyerRatio2s: 0.5, maxLargestBuyerShare2s: 0.72,
-  maxEntryImpactPct: 2, maxExitImpactPct: 2, maxRoundTripFeePct: 4
+  maxEntryImpactPct: 2, maxExitImpactPct: 2, maxRoundTripFeePct: 4,
+  minCreatorExitRecoveryImpulsePct: 35,
+  minCreatorExitRecoveryPivotPct: 8
 };
 function decision(s: MarketSnapshot, action: Decision["action"], reasons: string[], score = 0): Decision {
   return { mint:s.mint, action, score, reasons, strategyVersion:STRATEGY_VERSION, timestampMs:s.timestampMs, snapshot:s };
@@ -45,8 +50,22 @@ export function evaluateEntry(s: MarketSnapshot, config: StrategyConfig = DEFAUL
   const economicsGuard = evaluateTokenEconomics(
     s.tokenEconomics, s.estimatedRoundTripFeePct, s.timestampMs
   );
+  const creatorSaleQuarantine = !!s.creatorRisk?.creatorLifecycleHistoryComplete &&
+    s.creatorRisk.creatorInitialAllocationSoldPctSinceLaunch >
+      DEFAULT_MARKET_GUARD_CONFIG.maxCreatorInitialAllocationSoldPctSinceLaunch;
+  const creatorRecoveryConfirmed = creatorSaleQuarantine &&
+    Number.isFinite(s.impulsePct) && s.impulsePct >= config.minCreatorExitRecoveryImpulsePct &&
+    s.pivotReclaimPct !== undefined && Number.isFinite(s.pivotReclaimPct) &&
+    s.pivotReclaimPct >= config.minCreatorExitRecoveryPivotPct &&
+    s.higherLowConfirmed && flowGuard.watch.length === 0;
+
   const guardReject = [...creatorGuard.reject, ...flowGuard.reject, ...economicsGuard.reject];
-  const guardWatch = [...creatorGuard.watch, ...flowGuard.watch, ...economicsGuard.watch];
+  const creatorWatch = creatorGuard.watch.filter(reason =>
+    reason !== "creator_lifecycle_exit_quarantine_active"
+  );
+  if (creatorSaleQuarantine && !creatorRecoveryConfirmed)
+    creatorWatch.push("creator_exit_quarantine_recovery_not_confirmed");
+  const guardWatch = [...creatorWatch, ...flowGuard.watch, ...economicsGuard.watch];
   if (economicsGuard.effectiveRoundTripCostPct !== undefined &&
       economicsGuard.effectiveRoundTripCostPct > config.maxRoundTripFeePct)
     guardReject.push("round_trip_cost_including_taxes_above_strategy_limit");
@@ -78,5 +97,8 @@ export function evaluateEntry(s: MarketSnapshot, config: StrategyConfig = DEFAUL
 
   if (watch.length || guardWatch.length)
     return decision(s, "watch", [...new Set([...guardWatch, ...watch])]);
-  return decision(s, "buy", ["strict_entry_conditions_passed"], 100);
+  return decision(s, "buy", [
+    "strict_entry_conditions_passed",
+    ...(creatorRecoveryConfirmed ? ["creator_exit_recovery_confirmed"] : [])
+  ], 100);
 }
