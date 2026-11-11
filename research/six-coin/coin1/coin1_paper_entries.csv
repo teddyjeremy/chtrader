@@ -1,0 +1,2 @@
+coin,entry_index,entry_ts,entry_price,signal_ts,impulse_pct,pullback_pct,buy_sell_ratio,buyers,sellers,entry_source
+1,443,1794296594,6.34006146792019e-08,1794296593,22.981317790657528,17.005397485344165,3.144357280734157,6,3,strict_coin3_rules

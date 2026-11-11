@@ -1,0 +1,2 @@
+coin,entry_index,entry_ts,entry_price,signal_ts,impulse_pct,pullback_pct,buy_sell_ratio,buyers,sellers,entry_source
+2,352,1794292525,1.6230262110739774e-07,1794292525,,,,,,exploratory_candidate_B_prior_review

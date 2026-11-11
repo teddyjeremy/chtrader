@@ -1,0 +1,54 @@
+{
+  "mint": "2NFDhipSmrn3GaU7UK6jPvYxbveBUvNs6ec71r2ipump",
+  "quote_asset": "SOL",
+  "successful_curve_trades": 4192,
+  "buys": 2199,
+  "sells": 1993,
+  "unique_buyers": 766,
+  "unique_sellers": 545,
+  "unique_traders": 782,
+  "buy_quote_sol": 780.539002783,
+  "sell_quote_sol": 715.861250331,
+  "net_quote_flow_sol": 64.677752452,
+  "first_trade_eat": "2026-11-10T07:38:44",
+  "last_trade_eat": "2026-11-10T08:01:36",
+  "failed_candidate_instructions": 3624,
+  "strict_entry_signals": 1,
+  "rejected_structural_signals": 156,
+  "paper_entries": 1,
+  "entry": {
+    "signal_time_eat": "2026-11-10T07:40:58",
+    "entry_time_eat": "2026-11-10T07:40:59",
+    "impulse_pct": 95.7349,
+    "pullback_pct": 12.0415,
+    "pivot_reclaim_pct": 6.73,
+    "buy_sell_ratio": 9.714,
+    "buyers": 12,
+    "sellers": 4,
+    "largest_buyer_share_pct": 51.24
+  },
+  "cost_aware_exit": {
+    "gross_return_pct": 5,
+    "net_return_pct": 1.3572,
+    "hold_seconds": 14,
+    "peak_favorable_pct": 11.5698,
+    "reason": "profit_floor"
+  },
+  "baseline_exit": {
+    "gross_return_pct": -5.1184,
+    "net_return_pct": -8.4102,
+    "hold_seconds": 28,
+    "reason": "hard_stop"
+  },
+  "costs": {
+    "pump_fee_each_side_pct": 1.25,
+    "slippage_each_side_pct": 0.5,
+    "network_priority_tips_included": false
+  },
+  "limitations": [
+    "One-second OHLC replay; intrasecond ordering unknown.",
+    "No actual trade was sent.",
+    "No network fees, priority fees or tips.",
+    "One strict entry only; not statistical proof."
+  ]
+}

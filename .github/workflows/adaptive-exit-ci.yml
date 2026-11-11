@@ -1,0 +1,28 @@
+name: Adaptive entry and exit validation
+on:
+  push:
+    branches:
+      - research/coin-one-lifecycle
+    paths:
+      - "src/bot/**"
+      - "docs/ADAPTIVE_ENTRY_EXIT_RULES_V1.md"
+      - "package.json"
+      - ".github/workflows/adaptive-exit-ci.yml"
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-package-lock
+      - run: npm run typecheck
+      - run: npm run test:risk
+      - run: npm run test:market-guards
+      - run: npm run test:market-pipeline
+      - run: npm run test:paper-runtime
+      - run: npm run test:entry
+      - run: npm run test:paper-engine
+      - run: npm run test:adaptive-exit
