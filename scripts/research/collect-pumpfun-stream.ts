@@ -118,7 +118,20 @@ while (!pending.discoveryComplete && pages < MAX_PAGES) {
 // Batch files are durable; JSONL output is deduplicated by signature before append.
 let fetchedThisRun = 0;
 let missingThisRun = 0;
+let duplicateRowsSkippedThisRun = 0;
 const seenByFile = new Map<string, Set<string>>();
+// Build a run-wide index from all previously collected successful transaction shards.
+// This prevents a signature from being appended twice even if its timestamp/day changes.
+const seenTransactionSignatures = new Set<string>();
+for (const name of (await readdir(root)).filter(name => name.endsWith(".jsonl") && !name.startsWith("missing-transactions"))) {
+  const existing = await readFile(join(root, name), "utf8");
+  for (const line of existing.split("\\n").filter(Boolean)) {
+    try {
+      const row = JSON.parse(line);
+      if (row.signature) seenTransactionSignatures.add(String(row.signature));
+    } catch { /* malformed historical row */ }
+  }
+}
 for (let offset = pending.nextOffset; offset < pending.signatures.length; offset += BATCH_SIZE) {
   const batch = pending.signatures.slice(offset, offset + BATCH_SIZE);
   const batchName = `batch-${String(offset).padStart(10, "0")}-${batch[0].signature}-${batch[batch.length - 1].signature}.jsonl`;
@@ -168,7 +181,14 @@ for (let offset = pending.nextOffset; offset < pending.signatures.length; offset
       }
       seenByFile.set(prefix, known);
     }
-    const fresh = additions.filter(row => !known!.has(String(row.signature)));
+    const batchSeen = new Set<string>();
+    const fresh = additions.filter(row => {
+      const signature = String(row.signature);
+      if (known!.has(signature) || seenTransactionSignatures.has(signature) || batchSeen.has(signature)) return false;
+      batchSeen.add(signature);
+      return true;
+    });
+    duplicateRowsSkippedThisRun += additions.length - fresh.length;
     const maxShardBytes = 20 * 1024 * 1024;
     let shard = shardNames.length ? shardNames[shardNames.length - 1] : "";
     let shardPath = shard ? join(root, shard) : "";
@@ -186,6 +206,7 @@ for (let offset = pending.nextOffset; offset < pending.signatures.length; offset
       await appendFile(shardPath, line);
       shardBytes += bytes;
       known!.add(String(row.signature));
+      if (row.kind !== "missing") seenTransactionSignatures.add(String(row.signature));
     }
   }
   pending.nextOffset = Math.min(offset + BATCH_SIZE, pending.signatures.length);
@@ -221,6 +242,7 @@ const report = {
   signaturesDiscovered,
   enhancedTransactionsFetchedThisRun: fetchedThisRun,
   enhancedTransactionsMissingThisRun: missingThisRun,
+  duplicateRowsSkippedThisRun,
   discoveryComplete,
   pendingCursorBefore: discoveryComplete ? null : cursorBefore,
   pendingWorkRemaining: !discoveryComplete,
