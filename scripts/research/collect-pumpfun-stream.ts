@@ -3,9 +3,9 @@ import { join } from "node:path";
 
 const PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const API_KEY = process.env.HELIUS_API_KEY;
-const requestedPages = Number(process.env.MAX_PAGES ?? 10);
-if (!Number.isInteger(requestedPages) || requestedPages < 1 || requestedPages > 10) {
-  throw new Error("MAX_PAGES must be an integer from 1 to 10");
+const requestedPages = Number(process.env.MAX_PAGES ?? 20);
+if (!Number.isInteger(requestedPages) || requestedPages < 1 || requestedPages > 20) {
+  throw new Error("MAX_PAGES must be an integer from 1 to 20");
 }
 const MAX_PAGES = requestedPages;
 // Helius Enhanced Transactions accepts batches; use 100 to avoid hundreds of slow requests.
