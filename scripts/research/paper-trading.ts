@@ -212,6 +212,13 @@ async function main() {
   const paperTrades: Obj[] = []; // Strict strategy-eligible fills; remain empty until risk/curve gates are verified.
   const shadowEntryBySignature = new Map<string, { mint: string; timestamp: number; priceSol: number; signalId: string }>();
   let candidateCount = 0;
+  let reclaimPassCandidates = 0;
+  let flowPassCandidates = 0;
+  let technicalPassCandidates = 0;
+  let nextEventConfirmations = 0;
+  let shadowEntriesOpened = 0;
+  const gateFailureCounts = new Map<string, number>();
+  const countFailure = (reason: string) => gateFailureCounts.set(reason, (gateFailureCounts.get(reason) ?? 0) + 1);
   const coinEntries = [...byMint.entries()];
   let coinBatchCount = 0;
   for (let offset = 0; offset < coinEntries.length; offset += COINS_PER_PROCESSING_BATCH) {
@@ -237,19 +244,21 @@ async function main() {
       const flow = flowPass(history, current.timestamp);
       const reasons = [...flow.reasons];
       if (!reclaimed) reasons.push("Price has not reclaimed the previous 5-second high by 1%");
-      // Creator attribution, creator-wallet history, taxes, curve state and executable
-      // exit-route/impact are not yet reconstructed from the current raw feed.
-      reasons.push("Creator identity and creator-wallet selling are not verified");
-      reasons.push("Bonding-curve reserves, token taxes and executable exit impact are not verified");
+      for (const reason of flow.reasons) countFailure(reason);
+      if (!reclaimed) countFailure("Price has not reclaimed the previous 5-second high by 1%");
+      if (reclaimed) reclaimPassCandidates++;
+      if (flow.pass) flowPassCandidates++;
       const signalId = mint + ":" + current.timestamp + ":" + current.signature;
       const shadowCandidate = reclaimed && flow.pass;
       if (shadowCandidate) {
+        technicalPassCandidates++;
         const next = rows.slice(i + 1).find(r => r.timestamp >= current.timestamp + 1 && r.timestamp <= current.timestamp + 4);
         if (next && next.priceSol >= current.priceSol * 0.99 && next.priceSol <= current.priceSol * 1.02) {
-          const entryHistory = rows.filter(r => r.timestamp >= next.timestamp - 60 && r.timestamp <= next.timestamp);
-          if (flowPass(entryHistory, next.timestamp).pass) {
-            shadowEntryBySignature.set(mint + "|" + next.signature, { mint, timestamp: next.timestamp, priceSol: next.priceSol, signalId });
-          }
+          nextEventConfirmations++;
+          // The flow filter was already evaluated at the signal timestamp. Requiring it
+          // again at the delayed fill timestamp double-applied the same three-window
+          // filter and silently eliminated otherwise valid historical entries.
+          shadowEntryBySignature.set(mint + "|" + next.signature, { mint, timestamp: next.timestamp, priceSol: next.priceSol, signalId });
         }
       }
       signals.push({
@@ -257,8 +266,15 @@ async function main() {
         priceSol: current.priceSol, impulsePct, pullbackPct, reclaimed,
         uniqueBuyersInFlowWindows: flow.uniqueBuyers,
         shadowCandidate,
-        decision: "WATCH", reasons,
-        strategyVersion: "pullback-reclaim-v2",
+        decision: "WATCH",
+        reasons,
+        verification: {
+          creatorRisk: "UNKNOWN_NOT_RECONSTRUCTED_FROM_FEED",
+          bondingCurveReserves: "UNKNOWN_NOT_RECONSTRUCTED_FROM_FEED",
+          executableExitImpact: "UNKNOWN_NOT_RECONSTRUCTED_FROM_FEED",
+          technicalSetup: shadowCandidate ? "PASS" : "FAIL"
+        },
+        strategyVersion: "pullback-reclaim-v3-backtest-diagnostic",
         paperOnly: true
       });
     }
@@ -313,6 +329,7 @@ async function main() {
     const candidate = shadowEntryBySignature.get(event.mint + "|" + event.signature);
     if (candidate && candidate.mint === event.mint && open.length < MAX_OPEN_POSITIONS && !open.some(p => p.mint === candidate.mint) && cashUsd >= buyCostUsd) {
       const tradeId = candidate.mint + ":" + candidate.timestamp + ":" + event.signature;
+      shadowEntriesOpened++;
       open.push({
         tradeId, signalId: candidate.signalId, mint: candidate.mint,
         entrySignature: event.signature, entryTime: event.timestamp,
@@ -356,6 +373,16 @@ async function main() {
     observedTokenOutputKeys: [...observedTokenOutputKeys].slice(0, 30),
     distinctSwapRows: swaps.size, tokensWithSwaps: byMint.size,
     pullbackCandidates: candidateCount, watchSignals: signals.length,
+    gateDiagnostics: {
+      reclaimPassCandidates,
+      flowPassCandidates,
+      technicalPassCandidates,
+      nextEventConfirmations,
+      shadowEntriesOpened,
+      shadowTradesClosed: shadowTrades.length,
+      flowAndReclaimFailureCounts: Object.fromEntries([...gateFailureCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30)),
+      interpretation: "Counts are candidate-event counts, not unique tokens. Shadow entries use historical swap-price proxies and are not proof of executable bonding-curve fills."
+    },
     paperTradesOpened: paperTrades.length,
     shadowTradesClosed: shadowTrades.length,
     shadowWins: shadowTrades.filter(t => n(t.pnlUsd) > 0).length,
