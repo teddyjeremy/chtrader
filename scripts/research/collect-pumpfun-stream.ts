@@ -38,6 +38,37 @@ const saveState = async () => {
 const rpcUrl = "https://mainnet.helius-rpc.com/?api-key=" + encodeURIComponent(API_KEY);
 const enhancedUrl = "https://api.helius.xyz/v0/transactions?api-key=" + encodeURIComponent(API_KEY);
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Store only transaction fields consumed by the paper-trading parser. Enhanced
+// transaction payloads can contain arbitrary instruction/log/metadata text;
+// retaining those fields is unnecessary and can accidentally persist secrets
+// embedded in on-chain data. Wallet addresses and swap amounts remain intact.
+function compactTransaction(tx: any): any {
+  const pick = (value: any, keys: string[]) => {
+    if (!value || typeof value !== "object") return undefined;
+    return Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]));
+  };
+  const swap = tx?.events?.swap;
+  const compactSwap = swap ? {
+    nativeInput: pick(swap.nativeInput, ["account", "amount"]),
+    nativeOutput: pick(swap.nativeOutput, ["account", "amount"]),
+    tokenInputs: Array.isArray(swap.tokenInputs) ? swap.tokenInputs.map((v: any) => pick(v, ["mint", "rawTokenAmount", "tokenAmount", "amount", "fromUserAccount", "toUserAccount", "userAccount", "tokenAccount"])) : [],
+    tokenOutputs: Array.isArray(swap.tokenOutputs) ? swap.tokenOutputs.map((v: any) => pick(v, ["mint", "rawTokenAmount", "tokenAmount", "amount", "fromUserAccount", "toUserAccount", "userAccount", "tokenAccount"])) : []
+  } : undefined;
+  return {
+    signature: tx?.signature,
+    timestamp: tx?.timestamp,
+    slot: tx?.slot,
+    feePayer: tx?.feePayer,
+    transactionStatus: tx?.transactionStatus,
+    transactionError: tx?.transactionError,
+    meta: tx?.meta ? { err: tx.meta.err } : undefined,
+    accountData: Array.isArray(tx?.accountData) ? tx.accountData.slice(0, 1).map((v: any) => pick(v, ["account"])) : [],
+    tokenTransfers: Array.isArray(tx?.tokenTransfers) ? tx.tokenTransfers.map((v: any) => pick(v, ["mint", "tokenAmount", "fromUserAccount", "toUserAccount"])) : [],
+    nativeTransfers: Array.isArray(tx?.nativeTransfers) ? tx.nativeTransfers.map((v: any) => pick(v, ["amount", "fromUserAccount", "toUserAccount"])) : [],
+    events: compactSwap ? { swap: compactSwap } : undefined
+  };
+}
 let rpcLast = 0;
 let enhancedLast = 0;
 
@@ -148,7 +179,7 @@ for (let offset = pending.nextOffset; offset < pending.signatures.length; offset
       if (!tx) return { kind: "missing", signature: sig.signature, slot: sig.slot, blockTime: sig.blockTime ?? null, status: "enhanced_transaction_missing" };
       const timestamp = Number(tx.timestamp ?? sig.blockTime ?? 0);
       const day = timestamp > 0 ? new Date(timestamp * 1000).toISOString().slice(0, 10) : "unknown-date";
-      return { kind: "transaction", day, signature: sig.signature, tx };
+      return { kind: "transaction", day, signature: sig.signature, tx: compactTransaction(tx) };
     });
     const temp = batchPath + ".tmp";
     await writeFile(temp, rows.map(row => JSON.stringify(row)).join("\n") + "\n");
