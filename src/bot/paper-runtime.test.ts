@@ -24,7 +24,9 @@ function frame(timestampMs: number): MarketSnapshotPipelineInput {
       sameSlotRoundTripDominance: false, dataFresh: true, marketStateVerified: true,
       priceQuote: 0.01, liquidityQuote: 200, buyVolumeQuote10s: 20, sellVolumeQuote10s: 2
     },
-    swaps, creatorWallet: "creator", relatedWallets: [], relatedClusterConfidence: 0.9,
+    swaps, creatorWallet: "creator", creatorLifecycleSwaps: [],
+    creatorLaunchAtMs: timestampMs - 1_000, creatorInitialAllocationRaw: "1000",
+    creatorLifecycleHistoryComplete: true, relatedWallets: [], relatedClusterConfidence: 0.9,
     currentHoldingsByWallet: {}, supplyRaw: "1000000000",
     historyComplete: true, holdingsComplete: true,
     quoteAsset: {
