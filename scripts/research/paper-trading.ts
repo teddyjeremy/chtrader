@@ -300,7 +300,7 @@ async function main() {
   const allSwaps = [...swaps.values()].sort((a, b) => a.timestamp - b.timestamp || a.signature.localeCompare(b.signature));
   const open: Obj[] = [];
   const shadowTrades: Obj[] = [];
-  const signalById = new Map(signals.map(signal => [String(signal.signalId), signal]));
+  const signalById = new Map<string, Obj>(signals.map(signal => [String(signal.signalId), signal] as [string, Obj]));
   let cashUsd = STARTING_EQUITY_USD;
   let realizedPnlUsd = 0;
   const buyCostUsd = TRADE_USD * (1 + PLATFORM_FEE_PER_SIDE + SLIPPAGE_PER_SIDE) + NETWORK_FEE_USD_PER_SIDE;
