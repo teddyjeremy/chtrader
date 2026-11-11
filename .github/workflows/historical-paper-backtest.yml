@@ -1,0 +1,71 @@
+name: Historical paper backtest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/historical-paper-backtest.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: historical-pumpfun-paper-backtest
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout existing collected dataset
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Validate backtest script
+        run: >-
+          npx tsc --noEmit --target ES2022 --module NodeNext
+          --moduleResolution NodeNext --skipLibCheck --types node
+          scripts/research/paper-trading.ts
+
+      - name: Run historical $1 paper backtest on existing data
+        run: npx tsx scripts/research/paper-trading.ts
+
+      - name: Publish backtest summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Historical Pump.fun paper backtest" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f data/pumpfun-stream/paper-trading-report.json ]; then
+            cat data/pumpfun-stream/paper-trading-report.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Paper report was not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload backtest outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-paper-backtest
+          path: |
+            data/pumpfun-stream/paper-trading-report.json
+            data/pumpfun-stream/paper-signals.jsonl
+            data/pumpfun-stream/paper-trades.jsonl
+            data/pumpfun-stream/shadow-paper-trades.jsonl
+            data/pumpfun-stream/paper-open-positions.json
+          if-no-files-found: warn
+          retention-days: 30
