@@ -16,7 +16,7 @@
 8. Largest buyer must account for no more than 72% of buy quote in each window.
 9. Require at least 5 distinct buyer wallets across the three windows.
 10. Require verified creator identity and recent creator/related-wallet evidence. Missing or stale evidence means WATCH.
-11. Reject creator sales above 0.05% of supply in 60 seconds; creator-linked sales above 0.25%; and high-confidence related-cluster sales above 0.25%.
+11. Reject creator sales above 0.05% of supply in the rolling 60-second window. Also reject when the creator has cumulatively sold more than 25% of the recorded initial allocation at any time since launch; this lifetime veto persists after the first 60 seconds. Creator-linked sales above 0.25% and high-confidence related-cluster sales above 0.25% remain vetoes. Missing or incomplete launch-to-now creator-sale history means WATCH, never BUY.
 12. Reject high-confidence related clusters (confidence >= 0.70) controlling more than 35% of recent buy volume or more than 20% of supply. Low-confidence cluster signals mean WATCH, not an automatic malicious label.
 13. Require verified buy/sell token transfer taxes and quote-asset mint, decimals, transfer tax and fresh SOL conversion. Either token tax above 2% or effective round-trip costs above 4% means REJECT. Unknown tax/conversion means WATCH.
 14. Require fresh market state, a verified curve exit route, and entry/exit impact no greater than 2% each.
