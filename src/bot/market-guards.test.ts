@@ -12,7 +12,9 @@ import type { CreatorRiskAssessment, FlowPersistenceAssessment, TokenEconomicsAs
 
 const creatorRisk = (): CreatorRiskAssessment => ({
   status:"verified",observedAtMs:10_000,creatorWalletKnown:true,
-  creatorSellSupplyPct60s:0,creatorLinkedSellSupplyPct60s:0,relatedWalletSellSupplyPct60s:0,
+  creatorSellSupplyPct60s:0,creatorInitialAllocationSoldPctSinceLaunch:0,creatorSellSupplyPctSinceLaunch:0,
+  creatorFirstSellAfterLaunchSeconds:null,creatorLifecycleHistoryComplete:true,
+  creatorLinkedSellSupplyPct60s:0,relatedWalletSellSupplyPct60s:0,
   relatedWalletBuyShare30s:10,relatedWalletHoldingsSupplyPct:5,clusterConfidence:0.9
 });
 const flow = (): FlowPersistenceAssessment => ({
@@ -31,6 +33,20 @@ test("vetoes a creator sale even when other market conditions are healthy",()=>{
   const risk=creatorRisk();risk.creatorSellSupplyPct60s=0.2;
   assert.ok(evaluateCreatorAndClusterRisk(risk,false,false,10_000).reject.includes("creator_wallet_sold_tokens_recently"));
 });
+test("vetoes creator liquidation from the launch allocation even after the rolling 60s window",()=>{
+  const risk=creatorRisk();
+  risk.creatorInitialAllocationSoldPctSinceLaunch=100;
+  risk.creatorSellSupplyPct60s=0;
+  const result=evaluateCreatorAndClusterRisk(risk,false,false,100_000);
+  assert.ok(result.reject.includes("creator_sold_material_share_of_initial_allocation_since_launch"));
+});
+
+test("requires complete launch-to-now creator sale history",()=>{
+  const risk=creatorRisk();risk.creatorLifecycleHistoryComplete=false;
+  const result=evaluateCreatorAndClusterRisk(risk,false,false,10_000);
+  assert.ok(result.watch.includes("creator_lifecycle_sale_history_not_verified"));
+});
+
 test("vetoes high-confidence related-wallet buy and holder concentration",()=>{
   const risk=creatorRisk();risk.relatedWalletBuyShare30s=45;risk.relatedWalletHoldingsSupplyPct=25;
   const result=evaluateCreatorAndClusterRisk(risk,false,false,10_000);
