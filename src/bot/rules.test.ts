@@ -52,10 +52,23 @@ test("rejects stale data, non-curve markets and unavailable exit routes",()=>{
   for(const mutate of cases){const s=valid();mutate(s);assert.equal(evaluateEntry(s).action,"reject");}
 });
 
-test("creator lifetime liquidation is a hard pre-entry veto",()=>{
+test("creator liquidation quarantines weak recovery setups",()=>{
   const s=valid();s.creatorRisk!.creatorInitialAllocationSoldPctSinceLaunch=100;
-  const d=evaluateEntry(s);assert.equal(d.action,"reject");
-  assert.ok(d.reasons.includes("creator_sold_material_share_of_initial_allocation_since_launch"));
+  const d=evaluateEntry(s);assert.equal(d.action,"watch");
+  assert.ok(d.reasons.includes("creator_exit_quarantine_recovery_not_confirmed"));
+});
+test("creator-exit tokens can requalify only after strong impulse, pivot reclaim and persistent flow",()=>{
+  const s=valid();s.creatorRisk!.creatorInitialAllocationSoldPctSinceLaunch=100;
+  s.impulsePct=38.46;s.pivotReclaimPct=12.52;s.higherLowConfirmed=true;
+  const d=evaluateEntry(s);assert.equal(d.action,"buy");
+  assert.ok(d.reasons.includes("creator_exit_recovery_confirmed"));
+});
+test("creator-exit recovery does not bypass failed persistent-flow windows",()=>{
+  const s=valid();s.creatorRisk!.creatorInitialAllocationSoldPctSinceLaunch=100;
+  s.impulsePct=38.46;s.pivotReclaimPct=12.52;s.higherLowConfirmed=true;
+  s.flowPersistence!.windows[1]!.sellQuote=2;
+  const d=evaluateEntry(s);assert.equal(d.action,"watch");
+  assert.ok(d.reasons.includes("creator_exit_quarantine_recovery_not_confirmed"));
 });
 test("creator selling is a hard pre-entry veto",()=>{
   const s=valid();s.creatorRisk!.creatorSellSupplyPct60s=0.2;
