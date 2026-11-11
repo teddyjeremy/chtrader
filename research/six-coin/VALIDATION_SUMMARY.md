@@ -31,4 +31,4 @@ All values are paper-replay estimates, not live fills. Costs generally include 1
 2. The wide 40% trail alone is not enough protection for a weak move that peaks near +10–12%.
 3. Progressive floors improved Coin 6's one replay, but this is not universal proof.
 4. Wide trailing and longer holding preserve genuine runners; migration exits must be implemented before curve closure.
-5. The next stage is a separate bad-coin selection/rejection system. It has not yet been validated by this work.
+5. A separate coin-selection prototype now tracks creator sales cumulatively since launch and quarantines tokens until a stronger recovery setup appears. It has not yet been replayed across the full coin set or validated out of sample; do not treat it as proven.
