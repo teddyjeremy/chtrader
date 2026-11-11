@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-11T06:17:18.310Z",
+  "updatedAt": "2026-11-11T06:23:08.454Z",
   "note": "Reset oversized historical signature backlog; resume with bounded incremental polling from the current Pump.fun head.",
   "lastSeenSignature": "V4caWbbX5pSf3JavDFbkVz53iMYw2sGAgNkFnem9P52V3zkp6BQpg8YEBq6TiccvVeeJiXAjBx3STZhe3upGjUz",
   "pending": {
@@ -7,6 +7,6 @@
     "signatures": [],
     "discoveryComplete": false,
     "nextOffset": 0,
-    "before": "3rGW9qTZjn8wyJikf8yy5oSAhNZMrmAGct1xomLAAss85RcYUnrjCSjoyzbwf25G34WEPMQdWcoNBZfedPKV6phU"
+    "before": "2tf2hc2kcJVgJgMhJKwRzJhYpfVER3Tg81QNBxuCbe8ejSNzTZyLa8o1GFhvje6qrTgL9NAg4NAgjWxPFStHVKgg"
   }
 }
