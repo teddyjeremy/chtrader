@@ -61,6 +61,11 @@ export function buildCreatorRiskAssessment(input: {
   relatedClusterConfidence: number;
   currentHoldingsByWallet: Record<string, string>;
   supplyRaw: string;
+  /** Complete creator-sale event history from token launch through observedAtMs. */
+  creatorLifecycleSwaps: MarketSwapEvent[];
+  creatorLaunchAtMs: number;
+  creatorInitialAllocationRaw: string;
+  creatorLifecycleHistoryComplete: boolean;
   observedAtMs: number;
   historyComplete: boolean;
   holdingsComplete: boolean;
@@ -69,6 +74,20 @@ export function buildCreatorRiskAssessment(input: {
   if (supply <= 0n) throw new Error("supplyRaw must be positive");
   const creator = input.creatorWallet;
   const related = new Set(input.relatedWallets);
+  const initialAllocation = BigInt(input.creatorInitialAllocationRaw);
+  if (initialAllocation <= 0n || !Number.isSafeInteger(input.creatorLaunchAtMs) ||
+      input.creatorLaunchAtMs < 0 || input.creatorLaunchAtMs > input.observedAtMs)
+    throw new Error("creator launch time and initial allocation must be valid");
+  const lifecycleSales = input.creatorLifecycleSwaps.filter(s =>
+    s.side === "sell" && creator && s.wallet === creator &&
+    s.timestampMs >= input.creatorLaunchAtMs && s.timestampMs <= input.observedAtMs
+  );
+  const creatorLifecycleSold = lifecycleSales.reduce((n, s) => n + BigInt(s.tokenAmountRaw), 0n);
+  const creatorInitialAllocationSoldPctSinceLaunch = Math.min(100, supplyPct(creatorLifecycleSold, initialAllocation));
+  const creatorSellSupplyPctSinceLaunch = supplyPct(creatorLifecycleSold, supply);
+  const creatorFirstSellAfterLaunchSeconds = lifecycleSales.length
+    ? (Math.min(...lifecycleSales.map(s => s.timestampMs)) - input.creatorLaunchAtMs) / 1000
+    : null;
   const from60s = input.swaps.filter(s => s.timestampMs > input.observedAtMs - 60_000 && s.timestampMs <= input.observedAtMs);
   const from30s = input.swaps.filter(s => s.timestampMs > input.observedAtMs - 30_000 && s.timestampMs <= input.observedAtMs);
   const creatorSells = from60s.filter(s => s.side === "sell" && creator && s.wallet === creator);
@@ -84,13 +103,18 @@ export function buildCreatorRiskAssessment(input: {
   const relatedHoldings = [...related].reduce(
     (n, wallet) => n + BigInt(input.currentHoldingsByWallet[wallet] ?? "0"), 0n
   );
-  const status: AssessmentStatus = input.historyComplete && input.holdingsComplete && !!creator
+  const lifecycleVerified = input.creatorLifecycleHistoryComplete && !!creator;
+  const status: AssessmentStatus = input.historyComplete && input.holdingsComplete && lifecycleVerified
     ? "verified" : "partial";
   return {
     status,
     observedAtMs: input.observedAtMs,
     creatorWalletKnown: !!creator,
     creatorSellSupplyPct60s: supplyPct(creatorSold, supply),
+    creatorInitialAllocationSoldPctSinceLaunch,
+    creatorSellSupplyPctSinceLaunch,
+    creatorFirstSellAfterLaunchSeconds,
+    creatorLifecycleHistoryComplete: lifecycleVerified,
     creatorLinkedSellSupplyPct60s: supplyPct(linkedSold, supply),
     relatedWalletSellSupplyPct60s: supplyPct(relatedSold, supply),
     relatedWalletBuyShare30s: totalBuyQuote > 0 ? relatedBuyQuote / totalBuyQuote * 100 : 0,
