@@ -6,7 +6,9 @@ import { join } from "node:path";
 const ROOT = "data/pumpfun-stream";
 const QUOTE_MINTS = new Set([
   "So11111111111111111111111111111111111111112",
-  "So11111111111111111111111111111111111111111"
+  "So11111111111111111111111111111111111111111",
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+  "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" // USDT
 ]);
 const TRADE_USD = 1;
 const STARTING_EQUITY_USD = 8;
@@ -79,7 +81,7 @@ function extractSwap(line: Obj): Swap | null {
   };
   const make = (mint: unknown, side: "buy" | "sell", quote: number, tokens: number): Swap | null => {
     const tokenMint = str(mint);
-    if (!tokenMint || quote <= 0 || tokens <= 0) return null;
+    if (!tokenMint || QUOTE_MINTS.has(tokenMint) || quote <= 0 || tokens <= 0) return null;
     return { signature, timestamp, mint: tokenMint, wallet, side, priceSol: quote / tokens, quoteSol: quote, tokenAmount: tokens };
   };
 
@@ -136,26 +138,38 @@ function extractSwap(line: Obj): Swap | null {
   }
   return null;
 }
-function flowPass(rows: Swap[], now: number): { pass: boolean; uniqueBuyers: number; reasons: string[] } {
+function flowPass(rows: Swap[], now: number): {
+  pass: boolean; uniqueBuyers: number; reasons: string[];
+  windows: Array<{ label: string; buyQuoteSol: number; sellQuoteSol: number; buySellRatio: number; buyers: number; sellers: number; largestBuyerShare: number; sellerBuyerRatio: number }>;
+} {
   const reasons: string[] = [];
   const allBuyers = new Set<string>();
+  const windows: Array<{ label: string; buyQuoteSol: number; sellQuoteSol: number; buySellRatio: number; buyers: number; sellers: number; largestBuyerShare: number; sellerBuyerRatio: number }> = [];
   for (const [startOffset, label] of [[6, "window-1"], [4, "window-2"], [2, "window-3"]] as const) {
     const start = now - startOffset;
     const end = start + 2;
     const window = rows.filter(r => r.timestamp >= start && (label === "window-3" ? r.timestamp <= now : r.timestamp < end));
     const buys = window.filter(r => r.side === "buy");
     const sells = window.filter(r => r.side === "sell");
-    const buyQuote = buys.reduce((s, r) => s + r.quoteSol, 0);
-    const sellQuote = sells.reduce((s, r) => s + r.quoteSol, 0);
-    const buyers = new Set(buys.map(r => r.wallet));
-    const sellers = new Set(sells.map(r => r.wallet));
-    const largestBuyerQuote = Math.max(0, ...[...buyers].map(w => buys.filter(r => r.wallet === w).reduce((s, r) => s + r.quoteSol, 0)));
+    const buyQuote = buys.reduce((sum, row) => sum + row.quoteSol, 0);
+    const sellQuote = sells.reduce((sum, row) => sum + row.quoteSol, 0);
+    const buyers = new Set(buys.map(row => row.wallet));
+    const sellers = new Set(sells.map(row => row.wallet));
+    const largestBuyerQuote = Math.max(0, ...[...buyers].map(wallet => buys.filter(row => row.wallet === wallet).reduce((sum, row) => sum + row.quoteSol, 0)));
+    const buySellRatio = sellQuote > 0 ? buyQuote / sellQuote : buyQuote > 0 ? 999 : 0;
+    const largestBuyerShare = buyQuote > 0 ? largestBuyerQuote / buyQuote : 0;
+    const sellerBuyerRatio = buyers.size > 0 ? sellers.size / buyers.size : sellers.size > 0 ? 999 : 0;
+    windows.push({
+      label, buyQuoteSol: Number(buyQuote.toFixed(9)), sellQuoteSol: Number(sellQuote.toFixed(9)),
+      buySellRatio: Number(buySellRatio.toFixed(4)), buyers: buyers.size, sellers: sellers.size,
+      largestBuyerShare: Number(largestBuyerShare.toFixed(4)), sellerBuyerRatio: Number(sellerBuyerRatio.toFixed(4))
+    });
     if (buyQuote <= sellQuote * 3) reasons.push(label + ": buy quote is not more than 3x sell quote");
-    if (buyQuote > 0 && largestBuyerQuote / buyQuote > 0.72) reasons.push(label + ": largest buyer exceeds 72% of buy flow");
+    if (buyQuote > 0 && largestBuyerShare > 0.72) reasons.push(label + ": largest buyer exceeds 72% of buy flow");
     for (const buyer of buyers) allBuyers.add(buyer);
   }
   if (allBuyers.size < 5) reasons.push("Fewer than 5 distinct buyers across the three windows");
-  return { pass: reasons.length === 0, uniqueBuyers: allBuyers.size, reasons };
+  return { pass: reasons.length === 0, uniqueBuyers: allBuyers.size, reasons, windows };
 }
 
 async function main() {
@@ -263,6 +277,7 @@ async function main() {
         signalId, timestamp: current.timestamp, mint, signature: current.signature,
         priceSol: current.priceSol, impulsePct, pullbackPct, reclaimed,
         uniqueBuyersInFlowWindows: flow.uniqueBuyers,
+        flowWindows: flow.windows,
         shadowCandidate,
         decision: "WATCH",
         reasons,
@@ -285,6 +300,7 @@ async function main() {
   const allSwaps = [...swaps.values()].sort((a, b) => a.timestamp - b.timestamp || a.signature.localeCompare(b.signature));
   const open: Obj[] = [];
   const shadowTrades: Obj[] = [];
+  const signalById = new Map(signals.map(signal => [String(signal.signalId), signal]));
   let cashUsd = STARTING_EQUITY_USD;
   let realizedPnlUsd = 0;
   const buyCostUsd = TRADE_USD * (1 + PLATFORM_FEE_PER_SIDE + SLIPPAGE_PER_SIDE) + NETWORK_FEE_USD_PER_SIDE;
@@ -319,6 +335,16 @@ async function main() {
         notionalUsd: TRADE_USD, grossExitUsd, buyCostUsd, sellCostsUsd,
         pnlUsd: Number(pnlUsd.toFixed(6)), returnPct: Number((pnlUsd / buyCostUsd * 100).toFixed(3)),
         peakReturnPct: Number(peakPct.toFixed(3)), heldSeconds, exitReason,
+        entryFeatures: (() => {
+          const signal = signalById.get(String(position.signalId)) ?? {};
+          return {
+            impulsePct: n(signal.impulsePct), pullbackPct: n(signal.pullbackPct),
+            reclaimed: Boolean(signal.reclaimed),
+            uniqueBuyersInFlowWindows: n(signal.uniqueBuyersInFlowWindows),
+            flowWindows: Array.isArray(signal.flowWindows) ? signal.flowWindows : [],
+            failedPreEntryChecks: Array.isArray(signal.reasons) ? signal.reasons : []
+          };
+        })(),
         status: "CLOSED_SHADOW_ONLY", riskGatesBypassed: ["creator verification", "curve reserve/exit-route verification", "tax verification", "impact verification"]
       });
       open.splice(p, 1);
@@ -353,6 +379,31 @@ async function main() {
   await writeFile(join(ROOT, "paper-trades.jsonl"), paperTrades.map(t => JSON.stringify(t)).join("\n") + (paperTrades.length ? "\n" : ""));
   await writeFile(join(ROOT, "shadow-paper-trades.jsonl"), shadowTrades.map(t => JSON.stringify(t)).join("\n") + (shadowTrades.length ? "\n" : ""));
   await writeFile(join(ROOT, "paper-open-positions.json"), JSON.stringify(openPositions, null, 2) + "\n");
+  const coinStats = new Map<string, Obj>();
+  for (const signal of signals) {
+    const mint = str(signal.mint);
+    if (!mint) continue;
+    const stats = coinStats.get(mint) ?? { mint, candidateSignals: 0, technicallyEligibleSignals: 0, closedTrades: 0, wins: 0, losses: 0, netPnlUsd: 0, totalPeakReturnPct: 0 };
+    stats.candidateSignals++;
+    if (signal.shadowCandidate) stats.technicallyEligibleSignals++;
+    coinStats.set(mint, stats);
+  }
+  for (const trade of shadowTrades) {
+    const mint = str(trade.mint);
+    const stats = coinStats.get(mint) ?? { mint, candidateSignals: 0, technicallyEligibleSignals: 0, closedTrades: 0, wins: 0, losses: 0, netPnlUsd: 0, totalPeakReturnPct: 0 };
+    stats.closedTrades++;
+    if (n(trade.pnlUsd) > 0) stats.wins++; else stats.losses++;
+    stats.netPnlUsd += n(trade.pnlUsd);
+    stats.totalPeakReturnPct += n(trade.peakReturnPct);
+    coinStats.set(mint, stats);
+  }
+  const coinDiagnostics = [...coinStats.values()].map(stats => ({
+    ...stats,
+    netPnlUsd: Number(n(stats.netPnlUsd).toFixed(6)),
+    averagePnlUsd: stats.closedTrades ? Number((n(stats.netPnlUsd) / stats.closedTrades).toFixed(6)) : null,
+    averagePeakReturnPct: stats.closedTrades ? Number((n(stats.totalPeakReturnPct) / stats.closedTrades).toFixed(3)) : null,
+    totalPeakReturnPct: undefined
+  })).sort((a, b) => a.netPnlUsd - b.netPnlUsd);
   const roundTripFeeUsd = 2 * (TRADE_USD * PLATFORM_FEE_PER_SIDE + TRADE_USD * SLIPPAGE_PER_SIDE + NETWORK_FEE_USD_PER_SIDE);
   const report = {
     generatedAt: new Date().toISOString(),
@@ -369,6 +420,8 @@ async function main() {
     observedTokenInputKeys: [...observedTokenInputKeys].slice(0, 30),
     observedTokenOutputKeys: [...observedTokenOutputKeys].slice(0, 30),
     distinctSwapRows: swaps.size, tokensWithSwaps: byMint.size,
+    knownQuoteMintRowsExcluded: "USDC/USDT/WSOL/native SOL are excluded from traded-token classification",
+    coinDiagnostics,
     pullbackCandidates: candidateCount, watchSignals: signals.length,
     gateDiagnostics: {
       reclaimPassCandidates,
