@@ -26,6 +26,12 @@ export type CreatorRiskAssessment = {
   observedAtMs: number;
   creatorWalletKnown: boolean;
   creatorSellSupplyPct60s: number;
+  /** Gross creator sales as a percentage of the creator's launch allocation, cumulatively since launch. */
+  creatorInitialAllocationSoldPctSinceLaunch: number;
+  /** Gross creator sales as a percentage of total token supply, cumulatively since launch. */
+  creatorSellSupplyPctSinceLaunch: number;
+  creatorFirstSellAfterLaunchSeconds: number | null;
+  creatorLifecycleHistoryComplete: boolean;
   creatorLinkedSellSupplyPct60s: number;
   relatedWalletSellSupplyPct60s: number;
   relatedWalletBuyShare30s: number;
