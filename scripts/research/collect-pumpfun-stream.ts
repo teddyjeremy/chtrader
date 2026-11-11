@@ -125,7 +125,7 @@ const seenByFile = new Map<string, Set<string>>();
 const seenTransactionSignatures = new Set<string>();
 for (const name of (await readdir(root)).filter(name => name.endsWith(".jsonl") && !name.startsWith("missing-transactions"))) {
   const existing = await readFile(join(root, name), "utf8");
-  for (const line of existing.split("\\n").filter(Boolean)) {
+  for (const line of existing.split("\n").filter(Boolean)) {
     try {
       const row = JSON.parse(line);
       if (row.signature) seenTransactionSignatures.add(String(row.signature));
