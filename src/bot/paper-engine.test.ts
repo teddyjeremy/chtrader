@@ -58,15 +58,15 @@ test("paper engine exits an open position on confirmed creator distribution",()=
   assert.equal(trade?.exitReason,"emergency_creator_or_related_wallet_distribution");
 });
 
-test("paper engine blocks and exits on lifetime creator liquidation after the rolling window",()=>{
+test("historic creator liquidation alone does not panic-exit an already-open position",()=>{
   const signal=snapshot(10000);
   const engine=new PaperEngine();
   const decision=evaluateEntry(signal);
-  const entry=snapshot(11000);
-  assert.equal(engine.open(decision,entry),true);
+  assert.equal(engine.open(decision,snapshot(11000)),true);
   const later=snapshot(100000);
   later.creatorRisk!.creatorInitialAllocationSoldPctSinceLaunch=100;
   later.creatorRisk!.creatorSellSupplyPct60s=0;
   const trade=engine.mark(later);
-  assert.equal(trade?.exitReason,"emergency_creator_or_related_wallet_distribution");
+  assert.equal(trade,null);
+  assert.equal(engine.getState().openPositions.length,1);
 });
