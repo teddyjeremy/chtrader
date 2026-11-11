@@ -253,11 +253,11 @@ async function main() {
       if (shadowCandidate) {
         technicalPassCandidates++;
         const next = rows.slice(i + 1).find(r => r.timestamp >= current.timestamp + 1 && r.timestamp <= current.timestamp + 4);
-        if (next && next.priceSol >= current.priceSol * 0.99 && next.priceSol <= current.priceSol * 1.02) {
+        if (next) {
           nextEventConfirmations++;
-          // The flow filter was already evaluated at the signal timestamp. Requiring it
-          // again at the delayed fill timestamp double-applied the same three-window
-          // filter and silently eliminated otherwise valid historical entries.
+          // Enter on the next observed swap after the signal. Do not require an extra
+          // price-stability confirmation: that was an unvalidated filter which hid
+          // technically valid historical setups from the experiment.
           shadowEntryBySignature.set(mint + "|" + next.signature, { mint, timestamp: next.timestamp, priceSol: next.priceSol, signalId });
         }
       }
