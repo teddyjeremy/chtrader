@@ -139,10 +139,10 @@ function extractSwap(line: Obj): Swap | null {
 function flowPass(rows: Swap[], now: number): { pass: boolean; uniqueBuyers: number; reasons: string[] } {
   const reasons: string[] = [];
   const allBuyers = new Set<string>();
-  for (const [endOffset, label] of [[5, "window-1"], [4, "window-2"], [3, "window-3"]] as const) {
-    const start = now - endOffset;
+  for (const [startOffset, label] of [[6, "window-1"], [4, "window-2"], [2, "window-3"]] as const) {
+    const start = now - startOffset;
     const end = start + 2;
-    const window = rows.filter(r => r.timestamp >= start && r.timestamp < end);
+    const window = rows.filter(r => r.timestamp >= start && (label === "window-3" ? r.timestamp <= now : r.timestamp < end));
     const buys = window.filter(r => r.side === "buy");
     const sells = window.filter(r => r.side === "sell");
     const buyQuote = buys.reduce((s, r) => s + r.quoteSol, 0);
@@ -150,9 +150,7 @@ function flowPass(rows: Swap[], now: number): { pass: boolean; uniqueBuyers: num
     const buyers = new Set(buys.map(r => r.wallet));
     const sellers = new Set(sells.map(r => r.wallet));
     const largestBuyerQuote = Math.max(0, ...[...buyers].map(w => buys.filter(r => r.wallet === w).reduce((s, r) => s + r.quoteSol, 0)));
-    if (buyers.size < 3) reasons.push(label + ": fewer than 3 distinct buyers");
     if (buyQuote <= sellQuote * 3) reasons.push(label + ": buy quote is not more than 3x sell quote");
-    if (sellers.size > buyers.size / 2) reasons.push(label + ": seller count exceeds half the buyer count");
     if (buyQuote > 0 && largestBuyerQuote / buyQuote > 0.72) reasons.push(label + ": largest buyer exceeds 72% of buy flow");
     for (const buyer of buyers) allBuyers.add(buyer);
   }
@@ -274,7 +272,7 @@ async function main() {
           executableExitImpact: "UNKNOWN_NOT_RECONSTRUCTED_FROM_FEED",
           technicalSetup: shadowCandidate ? "PASS" : "FAIL"
         },
-        strategyVersion: "pullback-reclaim-v3-backtest-diagnostic",
+        strategyVersion: "six-coin-rules-v1-replay",
         paperOnly: true
       });
     }
@@ -293,7 +291,7 @@ async function main() {
   for (const event of allSwaps) {
     for (let p = open.length - 1; p >= 0; p--) {
       const position = open[p];
-      if (position.mint !== event.mint || event.timestamp < position.entryTime) continue;
+      if (position.mint !== event.mint || event.timestamp <= position.entryTime) continue;
       position.lastPriceSol = event.priceSol;
       position.highWaterPriceSol = Math.max(position.highWaterPriceSol, event.priceSol);
       const peakPct = (position.highWaterPriceSol / position.entryPriceSol - 1) * 100;
@@ -305,8 +303,7 @@ async function main() {
         : peakPct >= 10 ? position.entryPriceSol * 1.05 : 0;
       const effectiveStop = Math.max(hardStop, trailStop, protectedFloor);
       const heldSeconds = event.timestamp - position.entryTime;
-      const exitReason = event.priceSol <= effectiveStop ? "adaptive_stop_or_profit_floor"
-        : heldSeconds >= 300 ? "max_hold_300s" : "";
+      const exitReason = event.priceSol <= effectiveStop ? "adaptive_stop_or_profit_floor" : "";
       if (!exitReason) continue;
       const grossExitUsd = TRADE_USD * event.priceSol / position.entryPriceSol;
       const sellCostsUsd = grossExitUsd * (PLATFORM_FEE_PER_SIDE + SLIPPAGE_PER_SIDE) + NETWORK_FEE_USD_PER_SIDE;
@@ -381,7 +378,7 @@ async function main() {
       shadowEntriesOpened,
       shadowTradesClosed: shadowTrades.length,
       flowAndReclaimFailureCounts: Object.fromEntries([...gateFailureCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30)),
-      interpretation: "Counts are candidate-event counts, not unique tokens. Shadow entries use historical swap-price proxies and are not proof of executable bonding-curve fills."
+      interpretation: "Counts are candidate-event counts, not unique tokens. Three consecutive non-overlapping 2-second windows are tested. Same-second post-entry swaps are excluded because this feed lacks transaction index ordering. Shadow entries use historical swap-price proxies and are not proof of executable bonding-curve fills."
     },
     paperTradesOpened: paperTrades.length,
     shadowTradesClosed: shadowTrades.length,
@@ -405,7 +402,7 @@ async function main() {
       exampleAtFlatPrice: { entryFeeUsd: 0.01, entrySlippageUsd: 0.005, entryNetworkUsd: 0.001, exitFeeUsd: 0.01, exitSlippageUsd: 0.005, exitNetworkUsd: 0.001, totalRoundTripCostUsd: 0.032 },
       note: "Approximation for research only. Actual venue/creator fees, priority fees, route impact and slippage vary by transaction."
     },
-    feedLimitations: "Prices and flow are reconstructed from parsed swap events, not true one-second bonding-curve snapshots. Shadow fills bypass creator, tax, reserve and exit-route checks and are research diagnostics only.",
+    feedLimitations: "Prices and flow are reconstructed from parsed swap events, not true one-second bonding-curve snapshots. Same-second exits are excluded because transaction index ordering is unavailable. Shadow fills bypass creator, tax, reserve and exit-route checks and are research diagnostics only.",
     status: signals.length
       ? "Strategy-eligible trades remain blocked as WATCH until creator-risk and bonding-curve exit verification are available. Separate shadow-only $1 simulations measure price/flow setups without treating them as valid strategy trades."
       : "No qualifying pullback candidates were found in the parsed swap feed.",
