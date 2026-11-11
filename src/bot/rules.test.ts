@@ -10,7 +10,9 @@ const valid = (): MarketSnapshot => ({
   liquiditySol:12,estimatedEntryImpactPct:0.5,estimatedExitImpactPct:0.5,estimatedRoundTripFeePct:3,
   estimatedNetworkCostSol:0.00001,exitRouteAvailable:true,creatorDistributing:false,
   suspiciousClusterDominance:false,sameSlotRoundTripDominance:false,dataFresh:true,marketStateVerified:true,
-  creatorRisk:{status:"verified",observedAtMs:10000,creatorWalletKnown:true,creatorSellSupplyPct60s:0,creatorLinkedSellSupplyPct60s:0,relatedWalletSellSupplyPct60s:0,relatedWalletBuyShare30s:10,relatedWalletHoldingsSupplyPct:5,clusterConfidence:0.9},
+  creatorRisk:{status:"verified",observedAtMs:10000,creatorWalletKnown:true,creatorSellSupplyPct60s:0,creatorInitialAllocationSoldPctSinceLaunch:0,creatorSellSupplyPctSinceLaunch:0,
+  creatorFirstSellAfterLaunchSeconds:null,creatorLifecycleHistoryComplete:true,
+  creatorLinkedSellSupplyPct60s:0,relatedWalletSellSupplyPct60s:0,relatedWalletBuyShare30s:10,relatedWalletHoldingsSupplyPct:5,clusterConfidence:0.9},
   flowPersistence:{status:"verified",observedAtMs:10000,windows:[
     {startMs:6000,endMs:8000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","c"]},
     {startMs:7000,endMs:9000,buyQuote:4,sellQuote:1,uniqueBuyers:3,uniqueSellers:1,largestBuyerShare:0.5,buyerWallets:["a","b","d"]},
@@ -50,6 +52,11 @@ test("rejects stale data, non-curve markets and unavailable exit routes",()=>{
   for(const mutate of cases){const s=valid();mutate(s);assert.equal(evaluateEntry(s).action,"reject");}
 });
 
+test("creator lifetime liquidation is a hard pre-entry veto",()=>{
+  const s=valid();s.creatorRisk!.creatorInitialAllocationSoldPctSinceLaunch=100;
+  const d=evaluateEntry(s);assert.equal(d.action,"reject");
+  assert.ok(d.reasons.includes("creator_sold_material_share_of_initial_allocation_since_launch"));
+});
 test("creator selling is a hard pre-entry veto",()=>{
   const s=valid();s.creatorRisk!.creatorSellSupplyPct60s=0.2;
   const d=evaluateEntry(s);assert.equal(d.action,"reject");
