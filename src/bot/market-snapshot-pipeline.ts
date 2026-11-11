@@ -26,6 +26,11 @@ export type MarketSnapshotPipelineInput = {
   observedAtMs: number;
   swaps: MarketSwapEvent[];
   creatorWallet: string | null;
+  /** Full launch-to-now creator-sale event history; not just the rolling 60-second window. */
+  creatorLifecycleSwaps: MarketSwapEvent[];
+  creatorLaunchAtMs: number;
+  creatorInitialAllocationRaw: string;
+  creatorLifecycleHistoryComplete: boolean;
   relatedWallets: string[];
   relatedClusterConfidence: number;
   currentHoldingsByWallet: Record<string, string>;
@@ -106,6 +111,10 @@ export function buildMarketSnapshot(input: MarketSnapshotPipelineInput): MarketS
   });
   const creatorEvidenceValid =
     /^\d+$/.test(input.supplyRaw) && BigInt(input.supplyRaw || "0") > 0n &&
+    /^\d+$/.test(input.creatorInitialAllocationRaw) && BigInt(input.creatorInitialAllocationRaw || "0") > 0n &&
+    Number.isSafeInteger(input.creatorLaunchAtMs) && input.creatorLaunchAtMs >= 0 && input.creatorLaunchAtMs <= observedAtMs &&
+    validSwapHistory(input.creatorLifecycleSwaps, observedAtMs) &&
+    input.creatorLifecycleSwaps.every(s => s.timestampMs >= input.creatorLaunchAtMs) &&
     input.relatedWallets.every(wallet => typeof wallet === "string" && wallet.length > 0) &&
     Object.values(input.currentHoldingsByWallet).every(amount => /^\d+$/.test(amount)) &&
     Number.isFinite(input.relatedClusterConfidence) &&
@@ -117,6 +126,10 @@ export function buildMarketSnapshot(input: MarketSnapshotPipelineInput): MarketS
     relatedClusterConfidence: creatorEvidenceValid ? input.relatedClusterConfidence : 0,
     currentHoldingsByWallet: creatorEvidenceValid ? input.currentHoldingsByWallet : {},
     supplyRaw: creatorEvidenceValid ? input.supplyRaw : "1",
+    creatorLifecycleSwaps: creatorEvidenceValid ? input.creatorLifecycleSwaps : [],
+    creatorLaunchAtMs: creatorEvidenceValid ? input.creatorLaunchAtMs : 0,
+    creatorInitialAllocationRaw: creatorEvidenceValid ? input.creatorInitialAllocationRaw : "1",
+    creatorLifecycleHistoryComplete: input.creatorLifecycleHistoryComplete && creatorEvidenceValid,
     observedAtMs,
     historyComplete: input.historyComplete && historyValid && creatorEvidenceValid,
     holdingsComplete: input.holdingsComplete && creatorEvidenceValid
