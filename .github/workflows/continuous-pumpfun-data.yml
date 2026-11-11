@@ -1,5 +1,7 @@
 name: Continuous Pump.fun market data
 
+# Manual collection trigger: 2026-11-11 post-fix verification
+
 on:
   push:
     branches: [main]
