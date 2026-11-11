@@ -95,7 +95,7 @@ The entry evaluator now uses strategy version `pump-curve-entry-v2-persistent-ri
 
 ### Creator and related-wallet distribution
 - Reject if the identified creator sells more than 0.05% of total supply in the preceding 60 seconds.
-- Also reject if the creator has cumulatively sold more than 25% of the recorded initial allocation at any time since launch. This is a persistent lifecycle veto and does not expire after 60 seconds. The threshold is a research guardrail based on Coin 4 and Coin 5, not a statistically validated optimum.
+- If the creator has cumulatively sold more than 25% of the recorded initial allocation since launch, quarantine the token rather than permanently blacklist it. Requalify only after a fresh impulse of at least 35%, a pivot reclaim of at least 8%, a confirmed higher low and all three persistent-flow windows passing. These requalification thresholds are provisional and must be tested out of sample.
 - Require complete launch-to-now creator sale history and a verified initial allocation. If either is unavailable or incomplete, return WATCH; never treat missing lifecycle history as zero creator selling.
 - Reject if confidently attributed creator-linked wallets sell more than 0.25% of supply in the preceding 60 seconds.
 - Reject if a high-confidence related-wallet cluster sells more than 0.25% of supply in the preceding 60 seconds; low-confidence attribution produces WATCH.
