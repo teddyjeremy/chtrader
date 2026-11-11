@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/historical-paper-backtest.yml"
+      - "scripts/research/paper-trading.ts"
   workflow_dispatch:
 
 permissions:
@@ -42,7 +43,7 @@ jobs:
           --moduleResolution NodeNext --skipLibCheck --types node
           scripts/research/paper-trading.ts
 
-      - name: Run historical $1 paper backtest on existing data
+      - name: Run six-coin entry/exit rules against all existing historical data
         run: npx tsx scripts/research/paper-trading.ts
 
       - name: Publish backtest summary
