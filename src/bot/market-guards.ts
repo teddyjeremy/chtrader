@@ -66,7 +66,7 @@ export function evaluateCreatorAndClusterRisk(
   if (!risk.creatorLifecycleHistoryComplete)
     watch.push("creator_lifecycle_sale_history_not_verified");
   else if (risk.creatorInitialAllocationSoldPctSinceLaunch > config.maxCreatorInitialAllocationSoldPctSinceLaunch)
-    reject.push("creator_sold_material_share_of_initial_allocation_since_launch");
+    watch.push("creator_lifecycle_exit_quarantine_active");
   const highConfidence = risk.clusterConfidence >= config.minClusterConfidence;
   if (risk.creatorSellSupplyPct60s > config.maxCreatorSellSupplyPct60s)
     reject.push("creator_wallet_sold_tokens_recently");
