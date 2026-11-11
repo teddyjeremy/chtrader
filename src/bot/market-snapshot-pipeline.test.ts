@@ -27,6 +27,10 @@ function input(): MarketSnapshotPipelineInput {
       priceQuote: 0.01, liquidityQuote: 200, buyVolumeQuote10s: 20, sellVolumeQuote10s: 2
     },
     swaps,
+    creatorLifecycleSwaps: [],
+    creatorLaunchAtMs: 9_000,
+    creatorInitialAllocationRaw: "1000",
+    creatorLifecycleHistoryComplete: true,
     creatorWallet: "creator",
     relatedWallets: [],
     relatedClusterConfidence: 0.9,
@@ -66,6 +70,7 @@ test("incomplete history, holder data or tax metadata fails closed to WATCH", ()
   const value = input();
   value.historyComplete = false;
   value.holdingsComplete = false;
+  value.creatorLifecycleHistoryComplete = false;
   value.tokenTaxMetadataVerified = false;
   const snapshot = buildMarketSnapshot(value);
   assert.equal(snapshot.creatorRisk?.status, "partial");
