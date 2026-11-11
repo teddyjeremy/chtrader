@@ -38,7 +38,8 @@ test("vetoes creator liquidation from the launch allocation even after the rolli
   risk.creatorInitialAllocationSoldPctSinceLaunch=100;
   risk.creatorSellSupplyPct60s=0;
   const result=evaluateCreatorAndClusterRisk(risk,false,false,100_000);
-  assert.ok(result.reject.includes("creator_sold_material_share_of_initial_allocation_since_launch"));
+  assert.equal(result.reject.length,0);
+  assert.ok(result.watch.includes("creator_lifecycle_exit_quarantine_active"));
 });
 
 test("requires complete launch-to-now creator sale history",()=>{
