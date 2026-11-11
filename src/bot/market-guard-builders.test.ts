@@ -32,7 +32,8 @@ test("measures creator sells and related-wallet concentration using supply units
   const result=buildCreatorRiskAssessment({
     swaps,creatorWallet:"creator",relatedWallets:["cluster-a"],relatedClusterConfidence:0.9,
     currentHoldingsByWallet:{"cluster-a":"500"},supplyRaw:"10000",observedAtMs:10_000,
-    historyComplete:true,holdingsComplete:true
+    creatorLifecycleSwaps:swaps,creatorLaunchAtMs:1_000,creatorInitialAllocationRaw:"1000",
+    creatorLifecycleHistoryComplete:true,historyComplete:true,holdingsComplete:true
   });
   assert.equal(result.status,"verified");
   assert.equal(result.creatorSellSupplyPct60s,1);
@@ -40,12 +41,34 @@ test("measures creator sells and related-wallet concentration using supply units
   assert.equal(result.relatedWalletSellSupplyPct60s,3);
   assert.equal(result.relatedWalletBuyShare30s,60);
   assert.equal(result.relatedWalletHoldingsSupplyPct,5);
+  assert.equal(result.creatorInitialAllocationSoldPctSinceLaunch,10);
+  assert.equal(result.creatorSellSupplyPctSinceLaunch,1);
+  assert.equal(result.creatorFirstSellAfterLaunchSeconds,8.5);
 });
+test("lifetime creator sales remain visible after the rolling 60-second window expires",()=>{
+  const lifecycle:MarketSwapEvent[]=[
+    {wallet:"creator",side:"sell",timestampMs:2_000,tokenAmountRaw:"500",quoteAmount:1},
+    {wallet:"creator",side:"sell",timestampMs:3_000,tokenAmountRaw:"500",quoteAmount:1}
+  ];
+  const result=buildCreatorRiskAssessment({
+    swaps:[],creatorLifecycleSwaps:lifecycle,creatorWallet:"creator",
+    relatedWallets:[],relatedClusterConfidence:0,currentHoldingsByWallet:{},
+    supplyRaw:"1000000",creatorLaunchAtMs:1_000,creatorInitialAllocationRaw:"1000",
+    creatorLifecycleHistoryComplete:true,observedAtMs:100_000,historyComplete:true,holdingsComplete:true
+  });
+  assert.equal(result.status,"verified");
+  assert.equal(result.creatorSellSupplyPct60s,0);
+  assert.equal(result.creatorInitialAllocationSoldPctSinceLaunch,100);
+  assert.equal(result.creatorSellSupplyPctSinceLaunch,0.1);
+  assert.equal(result.creatorFirstSellAfterLaunchSeconds,1);
+});
+
 test("missing creator or incomplete holdings keep creator-risk evidence partial",()=>{
   const result=buildCreatorRiskAssessment({
     swaps:[],creatorWallet:null,relatedWallets:[],relatedClusterConfidence:0,
     currentHoldingsByWallet:{},supplyRaw:"1000",observedAtMs:10_000,
-    historyComplete:true,holdingsComplete:false
+    creatorLifecycleSwaps:[],creatorLaunchAtMs:1_000,creatorInitialAllocationRaw:"1000",
+    creatorLifecycleHistoryComplete:true,historyComplete:true,holdingsComplete:false
   });
   assert.equal(result.status,"partial");
   assert.equal(result.creatorWalletKnown,false);
