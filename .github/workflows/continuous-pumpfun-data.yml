@@ -14,7 +14,7 @@ on:
       max_pages:
         description: "Maximum 1000-signature pages to discover per run; small incremental polls"
         required: true
-        default: "10"
+        default: "20"
         type: string
 
 permissions:
@@ -55,7 +55,7 @@ jobs:
       - name: Collect and checkpoint Pump.fun transactions
         env:
           HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
-          MAX_PAGES: ${{ inputs.max_pages || '10' }}
+          MAX_PAGES: ${{ inputs.max_pages || '20' }}
         run: npx tsx scripts/research/collect-pumpfun-stream.ts
 
       - name: Rebuild $1 paper signals and ledger
